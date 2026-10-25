@@ -134,6 +134,35 @@ header.top { display: flex; align-items: center; justify-content: space-between;
 .dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--line); display: block; }
 .dots i.on { background: var(--accent); }
 
+.quote { display: flex; flex-direction: column; gap: 10px; }
+.quote blockquote { margin: 0; }
+.quote .eyebrow { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.teacher-q { font-family: var(--font-display); font-style: italic; font-size: 25px; line-height: 1.22; text-wrap: pretty; }
+.teacher-q::before { content: "“"; } .teacher-q::after { content: "”"; }
+.by { font-size: 14px; color: var(--muted); }
+.by::before { content: "— "; }
+.linkbtn { font: inherit; font-size: 12px; letter-spacing: .04em; text-transform: none; background: none; border: 0; color: var(--accent); cursor: pointer; padding: 4px 0; }
+/* Your own notes: upright sans on a tinted card, so they never read as a teacher's words. */
+.mine { background: var(--accent-soft); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+.mine .tag { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.mine .txt { font-size: 16px; font-weight: 500; white-space: pre-wrap; overflow-wrap: anywhere; }
+.mine .src { font-size: 13px; color: var(--muted); }
+.qlist { display: flex; flex-direction: column; gap: 10px; }
+.qlist h3 { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 6px 0 0; }
+.qitem { display: flex; flex-direction: column; gap: 2px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.qitem:last-child { border-bottom: 0; }
+.qitem .teacher-q { font-size: 19px; }
+.mine .row2 { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; }
+.delbtn { font: inherit; font-size: 13px; background: none; border: 0; color: var(--warn); cursor: pointer; padding: 2px 0; flex: none; }
+textarea, input[type="text"] {
+  font: inherit; font-size: 16px; color: var(--ink); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 10px; padding: 10px 12px; width: 100%;
+}
+textarea { min-height: 84px; resize: vertical; }
+.tabs { display: flex; gap: 6px; }
+.tabs button { font: inherit; font-size: 14px; border: 1px solid var(--line); background: transparent; color: var(--muted); padding: 6px 12px; border-radius: 999px; cursor: pointer; }
+.tabs button[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
 details.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; }
 details.panel summary { cursor: pointer; padding: 14px 16px; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
 details.panel summary::-webkit-details-marker { display: none; }
@@ -183,6 +212,19 @@ select, input[type="number"], input[type="password"] {
     <div class="sub tnum" id="heroSub"></div>
   </section>
 
+  <section class="quote" aria-label="Today's reminder">
+    <div class="eyebrow"><span>Today's reminder</span><button type="button" class="linkbtn" id="nextQuote">Another</button></div>
+    <blockquote>
+      <div class="teacher-q" id="quoteText"></div>
+      <div class="by" id="quoteBy"></div>
+    </blockquote>
+    <div class="mine" id="myDaily" hidden>
+      <span class="tag">Your note</span>
+      <span class="txt" id="myDailyText"></span>
+      <span class="src" id="myDailySrc"></span>
+    </div>
+  </section>
+
   <section class="list" id="list" aria-label="Prayers"></section>
 
   <section class="week">
@@ -192,6 +234,28 @@ select, input[type="number"], input[type="password"] {
     </div>
     <div class="days" id="days"></div>
   </section>
+
+  <details class="panel" id="quotesPanel">
+    <summary>Quotes and notes <span id="quotesSummary"></span></summary>
+    <div class="form">
+      <form class="form" id="noteForm" style="padding:0">
+        <div class="field">
+          <label for="noteText">Add something you want to remember</label>
+          <textarea id="noteText" maxlength="1000" placeholder="A quote, a lesson, a reminder to yourself"></textarea>
+        </div>
+        <div class="field">
+          <label for="noteSrc">Source (optional)</label>
+          <input type="text" id="noteSrc" maxlength="120" placeholder="Who said it, or where you found it">
+        </div>
+        <div class="btns"><button type="submit" class="savebtn">Add note</button></div>
+      </form>
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" id="tabMine" aria-selected="true">Your notes</button>
+        <button type="button" role="tab" id="tabTeachers" aria-selected="false">Teachers</button>
+      </div>
+      <div class="qlist" id="qlist"></div>
+    </div>
+  </details>
 
   <details class="panel" id="settings">
     <summary>Location and method <span id="settingsSummary"></span></summary>
@@ -353,11 +417,41 @@ select, input[type="number"], input[type="password"] {
   ];
   const DEFAULT_SETTINGS = { city: "Paris", lat: 48.8566, lng: 2.3522, method: "MWL", asr: 1 };
 
+  const QUOTES = [
+    ["Love everyone, serve everyone, remember God.", "Neem Karoli Baba"],
+    ["Love everyone and tell the truth.", "Neem Karoli Baba"],
+    ["It is better to see God in everything than to try to figure it out.", "Neem Karoli Baba"],
+    ["The best form in which to worship God is all forms.", "Neem Karoli Baba"],
+    ["Attachment is the strongest block to realization.", "Neem Karoli Baba"],
+    ["Don't throw anyone out of your heart.", "Neem Karoli Baba"],
+    ["We're all just walking each other home.", "Ram Dass"],
+    ["The quieter you become, the more you can hear.", "Ram Dass"],
+    ["Be here now.", "Ram Dass"],
+    ["The season of failure is the best time for sowing the seeds of success.", "Paramahansa Yogananda"],
+    ["Live quietly in the moment and see the beauty of all before you. The future will take care of itself.", "Paramahansa Yogananda"],
+    ["Be as simple as you can be; you will be astonished to see how uncomplicated and happy your life can become.", "Paramahansa Yogananda"],
+    ["Kindness is the light that dissolves all walls between souls, families, and nations.", "Paramahansa Yogananda"],
+    ["Persistence guarantees that results are inevitable.", "Paramahansa Yogananda"],
+    ["Happiness is your nature. It is not wrong to desire it. What is wrong is seeking it outside when it is inside.", "Ramana Maharshi"],
+    ["Your own Self-realization is the greatest service you can render the world.", "Ramana Maharshi"],
+    ["Let what comes come. Let what goes go. Find out what remains.", "Ramana Maharshi"],
+    ["Silence is also conversation.", "Ramana Maharshi"],
+    ["Water the root to enjoy the fruit.", "Maharishi Mahesh Yogi"],
+    ["Whatever we put our attention on will grow stronger in our life.", "Maharishi Mahesh Yogi"],
+    ["Arise, awake, and stop not till the goal is reached.", "Swami Vivekananda"],
+    ["We are what our thoughts have made us; so take care about what you think.", "Swami Vivekananda"],
+    ["All the powers in the universe are already ours. It is we who have put our hands before our eyes and cry that it is dark.", "Swami Vivekananda"],
+    ["In a day, when you don't come across any problems, you can be sure that you are travelling in a wrong path.", "Swami Vivekananda"]
+  ];
+
   const state = {
     settings: { ...DEFAULT_SETTINGS },
     days: {},            // "2026-10-25" -> { fajr: true, ... }
+    notes: {},           // id -> { text, source, created, deleted? }
     selected: startOfDay(new Date())
   };
+  let quoteShift = 0;    // "Another" taps since load
+  let quoteTab = "mine";
 
   function startOfDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
   function keyOf(d) {
@@ -384,11 +478,12 @@ select, input[type="number"], input[type="password"] {
     if (!data) return;
     if (data.settings) state.settings = { ...DEFAULT_SETTINGS, ...data.settings };
     if (data.days) state.days = data.days;
+    if (data.notes) state.notes = data.notes;
     if (data.dirty) Object.assign(dirty, data.dirty);
   }
-  // Day keys (and "settings") changed here since the last successful sync.
+  // Day keys, "note:<id>" keys and "settings" changed here since the last successful sync.
   const dirty = {};
-  function saveLocal() { ls.set(LS_KEY, { settings: state.settings, days: state.days, dirty }); }
+  function saveLocal() { ls.set(LS_KEY, { settings: state.settings, days: state.days, notes: state.notes, dirty }); }
 
   let sync = ls.get(LS_SYNC);   // { token, gistId } or null
   let pushTimer = null, syncing = null, lastSynced = null;
@@ -446,24 +541,33 @@ select, input[type="number"], input[type="password"] {
       const remote = await readGist();
       const pending = { ...dirty };
       const days = { ...(remote.days || {}) };
-      for (const k in pending) if (k !== "settings" && state.days[k]) days[k] = state.days[k];
+      const notes = { ...(remote.notes || {}) };
+      const applyLocal = keys => {
+        for (const k in keys) {
+          if (k.startsWith("note:")) { const id = k.slice(5); if (state.notes[id]) notes[id] = state.notes[id]; }
+          else if (k !== "settings" && state.days[k]) days[k] = state.days[k];
+        }
+      };
+      applyLocal(pending);
       const settings = pending.settings || !remote.settings ? state.settings : { ...DEFAULT_SETTINGS, ...remote.settings };
       if (Object.keys(pending).length) {
         await gh("/gists/" + sync.gistId, {
           method: "PATCH",
-          body: JSON.stringify({ files: { [GIST_FILE]: { content: JSON.stringify({ version: 1, settings, days, updated: new Date().toISOString() }) } } })
+          body: JSON.stringify({ files: { [GIST_FILE]: { content: JSON.stringify({ version: 1, settings, days, notes, updated: new Date().toISOString() }) } } })
         });
       }
       // Keep changes made while this sync was running for the next round.
       for (const k in pending) delete dirty[k];
-      for (const k in dirty) if (k !== "settings" && state.days[k]) days[k] = state.days[k];
+      applyLocal(dirty);
       state.days = days;
+      state.notes = notes;
       state.settings = dirty.settings ? state.settings : settings;
       saveLocal();
       lastSynced = new Date();
       showSyncState();
       fillSettingsForm();
       render();
+      renderQuoteList();
       if (Object.keys(dirty).length) schedulePush();
     })().catch(err => {
       if (err.status === 401 || err.status === 403) setSyncError("GitHub refused the token. Check that it has the Gists: Read and write permission and hasn't expired.");
@@ -512,6 +616,7 @@ select, input[type="number"], input[type="password"] {
         ls.set(LS_SYNC, sync);
         // Push everything this device has, merged with what is already in the gist.
         for (const k in state.days) dirty[k] = true;
+        for (const id in state.notes) dirty["note:" + id] = true;
         $("tokenIn").value = "";
         await runSync();
         showSyncState();
@@ -592,6 +697,7 @@ select, input[type="number"], input[type="password"] {
     });
 
     renderHero(now, today, isToday, ticks, times);
+    renderQuote(sel);
     renderWeek(today);
     $("settingsSummary").textContent = state.settings.city + " · " + state.settings.method;
   }
@@ -643,6 +749,72 @@ select, input[type="number"], input[type="password"] {
     $("weekScore").textContent = total + " of " + possible + " prayed";
   }
 
+  // ---------- Quotes and notes ----------
+  const dayIndex = d => Math.round(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
+  const liveNotes = () => Object.entries(state.notes).filter(([, n]) => !n.deleted).sort((a, b) => b[1].created - a[1].created);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  function renderQuote(d) {
+    // Same quote all day on every device; a stride of 7 keeps one teacher from repeating day after day.
+    const i = dayIndex(d);
+    const q = QUOTES[((i * 7 + quoteShift) % QUOTES.length + QUOTES.length) % QUOTES.length];
+    $("quoteText").textContent = q[0];
+    $("quoteBy").textContent = q[1];
+    const notes = liveNotes();
+    $("myDaily").hidden = !notes.length;
+    if (notes.length) {
+      const n = notes[((i + quoteShift) % notes.length + notes.length) % notes.length][1];
+      $("myDailyText").textContent = n.text;
+      $("myDailySrc").textContent = n.source ? "— " + n.source : "";
+      $("myDailySrc").hidden = !n.source;
+    }
+  }
+
+  function renderQuoteList() {
+    const notes = liveNotes();
+    $("quotesSummary").textContent = notes.length + (notes.length === 1 ? " note" : " notes") + " · " + QUOTES.length + " quotes";
+    $("tabMine").setAttribute("aria-selected", quoteTab === "mine");
+    $("tabTeachers").setAttribute("aria-selected", quoteTab === "teachers");
+    const box = $("qlist");
+    if (quoteTab === "teachers") {
+      box.innerHTML = QUOTES.map(q => '<div class="qitem"><div class="teacher-q">' + esc(q[0]) + '</div><div class="by">' + esc(q[1]) + '</div></div>').join("");
+      return;
+    }
+    if (!notes.length) {
+      box.innerHTML = '<p class="note">Nothing here yet. Notes you add show up here and one appears each day under the teacher\'s quote.</p>';
+      return;
+    }
+    box.innerHTML = notes.map(([id, n]) =>
+      '<div class="mine"><span class="txt">' + esc(n.text) + '</span><div class="row2"><span class="src">' + (n.source ? "— " + esc(n.source) : "") +
+      '</span><button type="button" class="delbtn" data-id="' + esc(id) + '">Delete</button></div></div>').join("");
+    box.querySelectorAll(".delbtn").forEach(b => b.addEventListener("click", () => {
+      if (b.dataset.armed) {
+        const id = b.dataset.id;
+        state.notes = { ...state.notes, [id]: { ...state.notes[id], deleted: true } };
+        renderQuoteList(); render(); markDirty("note:" + id);
+      } else {
+        b.dataset.armed = "1"; b.textContent = "Tap again to delete";
+        setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = "Delete"; } }, 3000);
+      }
+    }));
+  }
+
+  function buildQuotes() {
+    $("nextQuote").addEventListener("click", () => { quoteShift++; renderQuote(state.selected); });
+    $("tabMine").addEventListener("click", () => { quoteTab = "mine"; renderQuoteList(); });
+    $("tabTeachers").addEventListener("click", () => { quoteTab = "teachers"; renderQuoteList(); });
+    $("noteForm").addEventListener("submit", e => {
+      e.preventDefault();
+      const text = $("noteText").value.trim();
+      if (!text) { $("noteText").focus(); return; }
+      const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      state.notes = { ...state.notes, [id]: { text, source: $("noteSrc").value.trim(), created: Date.now() } };
+      $("noteText").value = ""; $("noteSrc").value = "";
+      quoteTab = "mine";
+      renderQuoteList(); render(); markDirty("note:" + id);
+    });
+  }
+
   function toggle(key) {
     const k = keyOf(state.selected);
     const day = { ...(state.days[k] || {}) };
@@ -692,9 +864,11 @@ select, input[type="number"], input[type="password"] {
   loadLocal();
   buildSettingsForm();
   buildSyncForm();
+  buildQuotes();
   fillSettingsForm();
   showSyncState();
   render();
+  renderQuoteList();
   if (sync && sync.gistId) runSync();
 
   // Refresh countdown and statuses; jump to the new day at midnight.

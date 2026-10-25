@@ -1,0 +1,719 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Salat Tracker</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Salat">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f2f3f1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1412" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600&family=Amiri:wght@400&display=swap">
+<style>
+/* Layout: one narrow column like a phone app; the day reads top to bottom as the sky changes. */
+:root {
+  --bg: #f2f3f1;
+  --surface: #ffffff;
+  --ink: #17201d;
+  --muted: #66716c;
+  --line: #dde1dd;
+  --accent: #0d6b57;
+  --accent-ink: #ffffff;
+  --accent-soft: #dcefe8;
+  --warn: #a8551b;
+  --warn-soft: #f7e6d8;
+  --sky-fajr: linear-gradient(160deg, #2e3a6b 0%, #9a6f9e 55%, #f1b38f 100%);
+  --sky-dhuhr: linear-gradient(160deg, #6fb4e6 0%, #bfe1f5 100%);
+  --sky-asr: linear-gradient(160deg, #e9b65c 0%, #f6dfa6 100%);
+  --sky-maghrib: linear-gradient(160deg, #6a3d75 0%, #e2674a 60%, #f6b06a 100%);
+  --sky-isha: linear-gradient(160deg, #0b1230 0%, #26346b 100%);
+  --font-display: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --font-body: "Bricolage Grotesque", -apple-system, "Segoe UI", system-ui, sans-serif;
+  --font-arabic: "Amiri", "Geeza Pro", "Traditional Arabic", serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1412; --surface: #171e1b; --ink: #e9eeeb; --muted: #95a29c; --line: #27302c;
+    --accent: #3fbf9c; --accent-ink: #06231b; --accent-soft: #163a30; --warn: #e79a63; --warn-soft: #3a2618;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { background: var(--bg); margin: 0; }
+body {
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-top: calc(20px + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+[hidden] { display: none !important; }
+.app { max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+.tnum { font-variant-numeric: tabular-nums; }
+
+header.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.daynav { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.iconbtn {
+  width: 36px; height: 36px; flex: none; border-radius: 50%; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); font: inherit; font-size: 18px; line-height: 1;
+  display: grid; place-items: center; cursor: pointer;
+}
+.iconbtn:disabled { opacity: .35; cursor: default; }
+.datebox { min-width: 0; }
+.datebox .greg { font-weight: 600; font-size: 15px; }
+.datebox .hijri { color: var(--muted); font-size: 13px; }
+.todaybtn {
+  border: 1px solid var(--line); background: transparent; color: var(--muted);
+  font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 999px; cursor: pointer;
+}
+
+.hero { display: flex; flex-direction: column; gap: 2px; }
+.hero .eyebrow { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.hero .big { font-family: var(--font-display); font-size: clamp(40px, 11vw, 58px); line-height: 1.02; text-wrap: balance; }
+.hero .big em { font-style: italic; color: var(--accent); }
+.hero .sub { color: var(--muted); font-size: 15px; }
+
+.list { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
+.row {
+  display: grid; grid-template-columns: 44px minmax(0, 1fr) auto 48px; align-items: center; gap: 14px;
+  padding: 14px 14px 14px 16px; border-top: 1px solid var(--line);
+}
+.row:first-child { border-top: 0; }
+.row.now { background: var(--accent-soft); }
+.sky { width: 44px; height: 44px; border-radius: 12px; }
+.sky.fajr { background: var(--sky-fajr); } .sky.dhuhr { background: var(--sky-dhuhr); }
+.sky.asr { background: var(--sky-asr); } .sky.maghrib { background: var(--sky-maghrib); }
+.sky.isha { background: var(--sky-isha); }
+.name { min-width: 0; display: flex; flex-direction: column; }
+.name .en { font-weight: 600; font-size: 17px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.name .ar { font-family: var(--font-arabic); color: var(--muted); font-size: 16px; line-height: 1.2; }
+.chip { font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; }
+.chip.now { background: var(--accent); color: var(--accent-ink); }
+.chip.missed { background: var(--warn-soft); color: var(--warn); }
+.time { font-family: var(--font-display); font-size: 30px; line-height: 1; font-variant-numeric: tabular-nums; }
+.row.done .time { color: var(--muted); }
+.tick {
+  width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--line); background: transparent;
+  display: grid; place-items: center; cursor: pointer; color: transparent; transition: background .15s, border-color .15s, transform .1s;
+}
+.tick:active { transform: scale(.92); }
+.tick:disabled { cursor: default; opacity: .4; }
+.tick svg { width: 22px; height: 22px; }
+.row.done .tick { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.row.missed .tick { border-color: var(--warn); }
+.sunrise {
+  display: flex; align-items: center; gap: 10px; padding: 7px 16px; border-top: 1px solid var(--line);
+  color: var(--muted); font-size: 13px;
+}
+.sunrise::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #f1b38f; }
+
+.week { display: flex; flex-direction: column; gap: 10px; }
+.week .head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.week .head h2 { font-family: var(--font-display); font-weight: 400; font-size: 26px; margin: 0; }
+.week .head .score { color: var(--muted); font-size: 14px; }
+.days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.day {
+  border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 8px 4px 10px;
+  display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; font: inherit; color: var(--ink);
+}
+.day.sel { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.day .dn { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.day .dd { font-weight: 600; font-size: 15px; }
+.dots { display: flex; flex-direction: column; gap: 3px; }
+.dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--line); display: block; }
+.dots i.on { background: var(--accent); }
+
+details.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; }
+details.panel summary { cursor: pointer; padding: 14px 16px; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
+details.panel summary::-webkit-details-marker { display: none; }
+details.panel summary span { color: var(--muted); font-weight: 400; font-size: 14px; text-align: right; min-width: 0; }
+.form { display: grid; gap: 14px; padding: 0 16px 16px; }
+.field { display: grid; gap: 6px; }
+.field label { font-size: 13px; color: var(--muted); }
+select, input[type="number"], input[type="password"] {
+  font: inherit; font-size: 16px; color: var(--ink); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 10px; padding: 10px 12px; width: 100%;
+}
+.coords { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.btns { display: flex; gap: 10px; flex-wrap: wrap; }
+.savebtn {
+  font: inherit; font-weight: 600; background: var(--accent); color: var(--accent-ink); border: 0;
+  border-radius: 10px; padding: 11px 14px; cursor: pointer;
+}
+.ghostbtn {
+  font: inherit; background: transparent; color: var(--ink); border: 1px solid var(--line);
+  border-radius: 10px; padding: 10px 14px; cursor: pointer;
+}
+.note { color: var(--muted); font-size: 13px; margin: 0; }
+.note a { color: var(--accent); }
+.err { color: var(--warn); font-size: 13px; margin: 0; }
+.sync { color: var(--muted); font-size: 12px; text-align: center; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="daynav">
+      <button class="iconbtn" id="prevDay" aria-label="Previous day">‹</button>
+      <div class="datebox">
+        <div class="greg" id="gregDate">Today</div>
+        <div class="hijri" id="hijriDate"></div>
+      </div>
+      <button class="iconbtn" id="nextDay" aria-label="Next day">›</button>
+    </div>
+    <button class="todaybtn" id="todayBtn" hidden>Today</button>
+  </header>
+
+  <section class="hero" aria-live="polite">
+    <div class="eyebrow" id="heroEyebrow">Next prayer</div>
+    <div class="big" id="heroBig">Loading times</div>
+    <div class="sub tnum" id="heroSub"></div>
+  </section>
+
+  <section class="list" id="list" aria-label="Prayers"></section>
+
+  <section class="week">
+    <div class="head">
+      <h2>Last 7 days</h2>
+      <div class="score tnum" id="weekScore"></div>
+    </div>
+    <div class="days" id="days"></div>
+  </section>
+
+  <details class="panel" id="settings">
+    <summary>Location and method <span id="settingsSummary"></span></summary>
+    <form class="form" id="settingsForm">
+      <div class="field">
+        <label for="citySel">City</label>
+        <select id="citySel"></select>
+      </div>
+      <div class="coords" id="coordsBox" hidden>
+        <div class="field"><label for="latIn">Latitude</label><input type="number" id="latIn" step="0.0001" min="-90" max="90"></div>
+        <div class="field"><label for="lngIn">Longitude</label><input type="number" id="lngIn" step="0.0001" min="-180" max="180"></div>
+      </div>
+      <div class="field">
+        <label for="methodSel">Calculation method</label>
+        <select id="methodSel"></select>
+      </div>
+      <div class="field">
+        <label for="asrSel">Asr</label>
+        <select id="asrSel">
+          <option value="1">Standard (Shafi'i, Maliki, Hanbali)</option>
+          <option value="2">Hanafi</option>
+        </select>
+      </div>
+      <p class="note">Times are calculated on the device. If your local mosque differs by a few minutes, try another method.</p>
+      <div class="btns"><button type="submit" class="savebtn">Save</button></div>
+    </form>
+  </details>
+
+  <details class="panel" id="syncPanel">
+    <summary>Sync between devices <span id="syncSummary">Off</span></summary>
+    <form class="form" id="syncForm">
+      <div id="syncOff">
+        <div class="form" style="padding:0">
+          <p class="note">Your ticks are saved in a private gist on your GitHub account. Create a token with only the
+            <b>Gists: Read and write</b> permission at
+            <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens</a>,
+            then paste it here on each device. It stays in this browser.</p>
+          <div class="field">
+            <label for="tokenIn">GitHub token</label>
+            <input type="password" id="tokenIn" autocomplete="off" spellcheck="false" placeholder="github_pat_…">
+          </div>
+          <div class="btns"><button type="submit" class="savebtn" id="connectBtn">Connect</button></div>
+        </div>
+      </div>
+      <div id="syncOn" hidden>
+        <div class="form" style="padding:0">
+          <p class="note" id="syncInfo"></p>
+          <div class="btns">
+            <button type="button" class="ghostbtn" id="syncNow">Sync now</button>
+            <button type="button" class="ghostbtn" id="disconnect">Disconnect this device</button>
+          </div>
+        </div>
+      </div>
+      <p class="err" id="syncErr" hidden></p>
+    </form>
+  </details>
+
+  <div class="sync" id="sync">Saved on this device</div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- Prayer time calculation (PrayTimes.org algorithm) ----------
+  const DR = Math.PI / 180;
+  const sin = d => Math.sin(d * DR), cos = d => Math.cos(d * DR), tan = d => Math.tan(d * DR);
+  const asin = x => Math.asin(x) / DR, acos = x => Math.acos(x) / DR;
+  const atan2 = (y, x) => Math.atan2(y, x) / DR, acot = x => Math.atan(1 / x) / DR;
+  const fix = (a, b) => { a = a - b * Math.floor(a / b); return a < 0 ? a + b : a; };
+  const diff = (a, b) => fix(b - a, 24);
+
+  function julian(y, m, d) {
+    if (m <= 2) { y -= 1; m += 12; }
+    const A = Math.floor(y / 100), B = 2 - A + Math.floor(A / 4);
+    return Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + d + B - 1524.5;
+  }
+  function sunPos(jd) {
+    const D = jd - 2451545.0;
+    const g = fix(357.529 + 0.98560028 * D, 360);
+    const q = fix(280.459 + 0.98564736 * D, 360);
+    const L = fix(q + 1.915 * sin(g) + 0.020 * sin(2 * g), 360);
+    const e = 23.439 - 0.00000036 * D;
+    const RA = atan2(cos(e) * sin(L), cos(L)) / 15;
+    return { decl: asin(sin(e) * sin(L)), eqt: q / 15 - fix(RA, 24) };
+  }
+
+  const METHODS = {
+    MWL:     { name: "Muslim World League (18° / 17°)", fajr: 18, isha: 17 },
+    UOIF:    { name: "UOIF, France (12° / 12°)", fajr: 12, isha: 12 },
+    ISNA:    { name: "ISNA, North America (15° / 15°)", fajr: 15, isha: 15 },
+    Egypt:   { name: "Egyptian Authority (19.5° / 17.5°)", fajr: 19.5, isha: 17.5 },
+    Makkah:  { name: "Umm al-Qura, Makkah (18.5° / 90 min)", fajr: 18.5, ishaMin: 90 },
+    Karachi: { name: "Karachi (18° / 18°)", fajr: 18, isha: 18 }
+  };
+
+  function prayerTimes(y, m, d, lat, lng, methodKey, asrFactor) {
+    const M = METHODS[methodKey] || METHODS.MWL;
+    const jd = julian(y, m, d) - lng / (15 * 24);
+    const midDay = t => fix(12 - sunPos(jd + t).eqt, 24);
+    const angleTime = (angle, t, ccw) => {
+      const decl = sunPos(jd + t).decl;
+      const T = acos((-sin(angle) - sin(decl) * sin(lat)) / (cos(decl) * cos(lat))) / 15;
+      return midDay(t) + (ccw ? -T : T);
+    };
+    const asrTime = (factor, t) => {
+      const decl = sunPos(jd + t).decl;
+      return angleTime(-acot(factor + tan(Math.abs(lat - decl))), t, false);
+    };
+    let t = { fajr: 5, sunrise: 6, dhuhr: 12, asr: 13, sunset: 18, isha: 18 };
+    for (let i = 0; i < 2; i++) {
+      const p = k => t[k] / 24;
+      t = {
+        fajr: angleTime(M.fajr, p("fajr"), true),
+        sunrise: angleTime(0.833, p("sunrise"), true),
+        dhuhr: midDay(p("dhuhr")),
+        asr: asrTime(asrFactor, p("asr")),
+        sunset: angleTime(0.833, p("sunset"), false),
+        isha: M.ishaMin ? null : angleTime(M.isha, p("isha"), false)
+      };
+      if (M.ishaMin) t.isha = t.sunset + M.ishaMin / 60;
+    }
+    // Shift from solar to local clock time.
+    const tz = -new Date(y, m - 1, d, 12).getTimezoneOffset() / 60;
+    for (const k in t) t[k] += tz - lng / 15;
+    // High latitudes (angle-based): keep Fajr and Isha within a share of the night.
+    const night = diff(t.sunset, t.sunrise);
+    const fajrPortion = M.fajr / 60 * night;
+    if (isNaN(t.fajr) || diff(t.fajr, t.sunrise) > fajrPortion) t.fajr = t.sunrise - fajrPortion;
+    if (!M.ishaMin) {
+      const ishaPortion = M.isha / 60 * night;
+      if (isNaN(t.isha) || diff(t.sunset, t.isha) > ishaPortion) t.isha = t.sunset + ishaPortion;
+    }
+    t.maghrib = t.sunset;
+    // Isha can fall after midnight in summer, so hours past 24 roll into the next day.
+    const toDate = h => new Date(y, m - 1, d, 0, Math.round(h * 60));
+    const out = {};
+    for (const k of ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"]) out[k] = toDate(t[k]);
+    return out;
+  }
+
+  // ---------- Data ----------
+  const PRAYERS = [
+    { key: "fajr", en: "Fajr", ar: "الفجر" },
+    { key: "dhuhr", en: "Dhuhr", ar: "الظهر" },
+    { key: "asr", en: "Asr", ar: "العصر" },
+    { key: "maghrib", en: "Maghrib", ar: "المغرب" },
+    { key: "isha", en: "Isha", ar: "العشاء" }
+  ];
+  const CITIES = [
+    ["Paris", 48.8566, 2.3522], ["Lyon", 45.764, 4.8357], ["Marseille", 43.2965, 5.3698],
+    ["Lille", 50.6292, 3.0573], ["Toulouse", 43.6047, 1.4442], ["Bordeaux", 44.8378, -0.5792],
+    ["Nice", 43.7102, 7.262], ["Nantes", 47.2184, -1.5536], ["Strasbourg", 48.5734, 7.7521],
+    ["Montpellier", 43.6108, 3.8767], ["Rennes", 48.1173, -1.6778], ["Grenoble", 45.1885, 5.7245],
+    ["Saint-Étienne", 45.4397, 4.3872], ["Mulhouse", 47.7508, 7.3359], ["Brussels", 50.8503, 4.3517],
+    ["Geneva", 46.2044, 6.1432], ["London", 51.5074, -0.1278], ["Montréal", 45.5019, -73.5674],
+    ["Casablanca", 33.5731, -7.5898], ["Algiers", 36.7538, 3.0588], ["Tunis", 36.8065, 10.1815],
+    ["Dubai", 25.2048, 55.2708], ["Makkah", 21.4225, 39.8262], ["Madinah", 24.4672, 39.6111]
+  ];
+  const DEFAULT_SETTINGS = { city: "Paris", lat: 48.8566, lng: 2.3522, method: "MWL", asr: 1 };
+
+  const state = {
+    settings: { ...DEFAULT_SETTINGS },
+    days: {},            // "2026-10-25" -> { fajr: true, ... }
+    selected: startOfDay(new Date())
+  };
+
+  function startOfDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+  function keyOf(d) {
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  function addDays(d, n) { return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n); }
+  const fmtTime = d => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+  function timesFor(d) {
+    const s = state.settings;
+    return prayerTimes(d.getFullYear(), d.getMonth() + 1, d.getDate(), s.lat, s.lng, s.method, Number(s.asr) || 1);
+  }
+
+  // ---------- Storage: this browser, plus a private GitHub gist when connected ----------
+  const LS_KEY = "salat-tracker-v1";
+  const LS_SYNC = "salat-tracker-sync";
+  const GIST_FILE = "salat-tracker.json";
+  const ls = {
+    get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+    del(k) { try { localStorage.removeItem(k); } catch (e) {} }
+  };
+  function loadLocal() {
+    const data = ls.get(LS_KEY);
+    if (!data) return;
+    if (data.settings) state.settings = { ...DEFAULT_SETTINGS, ...data.settings };
+    if (data.days) state.days = data.days;
+    if (data.dirty) Object.assign(dirty, data.dirty);
+  }
+  // Day keys (and "settings") changed here since the last successful sync.
+  const dirty = {};
+  function saveLocal() { ls.set(LS_KEY, { settings: state.settings, days: state.days, dirty }); }
+
+  let sync = ls.get(LS_SYNC);   // { token, gistId } or null
+  let pushTimer = null, syncing = null, lastSynced = null;
+
+  async function gh(path, opts = {}) {
+    const res = await fetch("https://api.github.com" + path, {
+      ...opts,
+      cache: "no-store",
+      headers: {
+        "Accept": "application/vnd.github+json",
+        "Authorization": "Bearer " + sync.token,
+        "X-GitHub-Api-Version": "2022-11-28",
+        ...(opts.body ? { "Content-Type": "application/json" } : {})
+      }
+    });
+    if (!res.ok) {
+      const err = new Error("GitHub said " + res.status);
+      err.status = res.status;
+      throw err;
+    }
+    return res.json();
+  }
+  async function findOrCreateGist() {
+    for (let page = 1; page <= 10; page++) {
+      const list = await gh("/gists?per_page=100&page=" + page);
+      const hit = list.find(g => g.files && g.files[GIST_FILE]);
+      if (hit) return hit.id;
+      if (list.length < 100) break;
+    }
+    const created = await gh("/gists", {
+      method: "POST",
+      body: JSON.stringify({
+        description: "Salat Tracker data (private)",
+        public: false,
+        files: { [GIST_FILE]: { content: JSON.stringify({ version: 1, settings: state.settings, days: {} }) } }
+      })
+    });
+    return created.id;
+  }
+  async function readGist() {
+    const g = await gh("/gists/" + sync.gistId);
+    const f = g.files[GIST_FILE];
+    if (!f) return { settings: null, days: {} };
+    let text = f.content;
+    if (f.truncated) text = await (await fetch(f.raw_url, { cache: "no-store" })).text();
+    try { return JSON.parse(text) || {}; } catch (e) { return {}; }
+  }
+
+  // Pull the gist, lay this device's unsynced changes on top, and push the result back.
+  function runSync() {
+    if (!sync) return Promise.resolve();
+    if (syncing) return syncing.then(runSync);
+    syncing = (async () => {
+      setSync("Syncing…");
+      const remote = await readGist();
+      const pending = { ...dirty };
+      const days = { ...(remote.days || {}) };
+      for (const k in pending) if (k !== "settings" && state.days[k]) days[k] = state.days[k];
+      const settings = pending.settings || !remote.settings ? state.settings : { ...DEFAULT_SETTINGS, ...remote.settings };
+      if (Object.keys(pending).length) {
+        await gh("/gists/" + sync.gistId, {
+          method: "PATCH",
+          body: JSON.stringify({ files: { [GIST_FILE]: { content: JSON.stringify({ version: 1, settings, days, updated: new Date().toISOString() }) } } })
+        });
+      }
+      // Keep changes made while this sync was running for the next round.
+      for (const k in pending) delete dirty[k];
+      for (const k in dirty) if (k !== "settings" && state.days[k]) days[k] = state.days[k];
+      state.days = days;
+      state.settings = dirty.settings ? state.settings : settings;
+      saveLocal();
+      lastSynced = new Date();
+      showSyncState();
+      fillSettingsForm();
+      render();
+      if (Object.keys(dirty).length) schedulePush();
+    })().catch(err => {
+      if (err.status === 401 || err.status === 403) setSyncError("GitHub refused the token. Check that it has the Gists: Read and write permission and hasn't expired.");
+      else if (err.status === 404) { sync.gistId = null; ls.set(LS_SYNC, sync); setSyncError("The sync gist is gone. Tap Sync now to create a new one."); }
+      else setSync("Offline. Your ticks are kept on this device and will sync later.");
+    }).finally(() => { syncing = null; });
+    return syncing;
+  }
+  function schedulePush() {
+    if (!sync) return;
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(runSync, 1200);
+  }
+  function markDirty(k) { dirty[k] = true; saveLocal(); schedulePush(); }
+
+  function setSync(text) { document.getElementById("sync").textContent = text; }
+  function setSyncError(text) {
+    const e = document.getElementById("syncErr");
+    e.textContent = text; e.hidden = !text;
+    if (text) setSync("Sync paused. Your ticks are kept on this device.");
+  }
+  function showSyncState() {
+    const on = !!sync;
+    $("syncOff").hidden = on;
+    $("syncOn").hidden = !on;
+    $("syncSummary").textContent = on ? "On" : "Off";
+    setSyncError("");
+    if (on) {
+      $("syncInfo").textContent = "Connected to a private gist on your GitHub account." +
+        (lastSynced ? " Last synced at " + fmtTime(lastSynced) + "." : "");
+      setSync(lastSynced ? "Synced with GitHub at " + fmtTime(lastSynced) : "Connected to GitHub");
+    } else {
+      setSync("Saved on this device only. Turn on sync below to share with your other devices.");
+    }
+  }
+  function buildSyncForm() {
+    $("syncForm").addEventListener("submit", async e => {
+      e.preventDefault();
+      const token = $("tokenIn").value.trim();
+      if (!token) { setSyncError("Paste your GitHub token first."); return; }
+      $("connectBtn").disabled = true;
+      setSyncError("");
+      try {
+        sync = { token, gistId: null };
+        sync.gistId = await findOrCreateGist();
+        ls.set(LS_SYNC, sync);
+        // Push everything this device has, merged with what is already in the gist.
+        for (const k in state.days) dirty[k] = true;
+        $("tokenIn").value = "";
+        await runSync();
+        showSyncState();
+      } catch (err) {
+        sync = null;
+        setSyncError(err.status === 401 || err.status === 403
+          ? "GitHub refused the token. Check that it has the Gists: Read and write permission."
+          : "Couldn't reach GitHub. Check your connection and try again.");
+      } finally { $("connectBtn").disabled = false; }
+    });
+    $("syncNow").addEventListener("click", async () => {
+      if (sync && !sync.gistId) {
+        try { sync.gistId = await findOrCreateGist(); ls.set(LS_SYNC, sync); } catch (e) { setSyncError("Couldn't reach GitHub."); return; }
+      }
+      runSync();
+    });
+    $("disconnect").addEventListener("click", () => {
+      sync = null; lastSynced = null;
+      ls.del(LS_SYNC);
+      showSyncState();
+    });
+  }
+
+  // ---------- Render ----------
+  const $ = id => document.getElementById(id);
+  const CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+
+  function render() {
+    const now = new Date();
+    const today = startOfDay(now);
+    const sel = state.selected;
+    const isToday = +sel === +today;
+    const isFuture = sel > today;
+    const times = timesFor(sel);
+    const ticks = state.days[keyOf(sel)] || {};
+
+    $("gregDate").textContent = isToday ? "Today, " + sel.toLocaleDateString(undefined, { day: "numeric", month: "long" })
+      : sel.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
+    try {
+      $("hijriDate").textContent = new Intl.DateTimeFormat("en-u-ca-islamic-umalqura", { day: "numeric", month: "long", year: "numeric" }).format(sel);
+    } catch (e) { $("hijriDate").textContent = ""; }
+    $("todayBtn").hidden = isToday;
+    $("nextDay").disabled = isToday;
+
+    // Which prayer's time is it right now (today only)
+    const ends = { fajr: times.sunrise, dhuhr: times.asr, asr: times.maghrib, maghrib: times.isha, isha: timesFor(addDays(sel, 1)).fajr };
+    const list = $("list");
+    list.innerHTML = "";
+    PRAYERS.forEach(p => {
+      const t = times[p.key];
+      const done = !!ticks[p.key];
+      let status = "upcoming";
+      if (isFuture) status = "upcoming";
+      else if (!isToday) status = done ? "done" : "missed";
+      else if (now >= t && now < ends[p.key]) status = done ? "done" : "now";
+      else if (now >= ends[p.key]) status = done ? "done" : "missed";
+      else status = done ? "done" : "upcoming";
+      const locked = isFuture || (isToday && now < t);
+
+      const row = document.createElement("div");
+      row.className = "row " + status;
+      const chip = status === "now" ? '<span class="chip now">Now</span>' : status === "missed" ? '<span class="chip missed">Missed</span>' : "";
+      row.innerHTML =
+        '<div class="sky ' + p.key + '" aria-hidden="true"></div>' +
+        '<div class="name"><span class="en">' + p.en + chip + '</span><span class="ar" lang="ar">' + p.ar + '</span></div>' +
+        '<div class="time tnum">' + fmtTime(t) + '</div>' +
+        '<button class="tick" type="button" id="tick-' + p.key + '" aria-pressed="' + done + '" aria-label="' +
+          (done ? "Mark " + p.en + " as not prayed" : "Mark " + p.en + " as prayed") + '"' + (locked && !done ? " disabled" : "") + '>' + CHECK + '</button>';
+      row.querySelector("button").addEventListener("click", () => toggle(p.key));
+      list.appendChild(row);
+
+      if (p.key === "fajr") {
+        const sr = document.createElement("div");
+        sr.className = "sunrise tnum";
+        sr.textContent = "Sunrise " + fmtTime(times.sunrise) + ", end of Fajr";
+        list.appendChild(sr);
+      }
+    });
+
+    renderHero(now, today, isToday, ticks, times);
+    renderWeek(today);
+    $("settingsSummary").textContent = state.settings.city + " · " + state.settings.method;
+  }
+
+  function renderHero(now, today, isToday, ticks, times) {
+    if (!isToday) {
+      const n = PRAYERS.filter(p => ticks[p.key]).length;
+      $("heroEyebrow").textContent = state.selected > today ? "Upcoming day" : "Looking back";
+      $("heroBig").innerHTML = "<em>" + n + "</em> of 5 prayed";
+      $("heroSub").textContent = state.selected > today ? "" : "You can still tick prayers you made up (qada).";
+      return;
+    }
+    let next = null;
+    for (const p of PRAYERS) if (times[p.key] > now) { next = { p, t: times[p.key] }; break; }
+    if (!next) next = { p: PRAYERS[0], t: timesFor(addDays(today, 1)).fajr, tomorrow: true };
+    const mins = Math.max(0, Math.ceil((next.t - now) / 60000));
+    const h = Math.floor(mins / 60), m = mins % 60;
+    const left = h ? h + " h " + String(m).padStart(2, "0") + " min" : m + " min";
+    const n = PRAYERS.filter(p => ticks[p.key]).length;
+    $("heroEyebrow").textContent = "Next prayer" + (next.tomorrow ? ", tomorrow" : "");
+    $("heroBig").innerHTML = "<em>" + next.p.en + "</em> in " + left;
+    $("heroSub").textContent = "It's " + fmtTime(now) + " · " + n + " of 5 prayed today";
+  }
+
+  function renderWeek(today) {
+    const box = $("days");
+    box.innerHTML = "";
+    let total = 0, possible = 0;
+    const now = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = addDays(today, -i);
+      const ticks = state.days[keyOf(d)] || {};
+      const times = i === 0 ? timesFor(d) : null;
+      let dots = "";
+      PRAYERS.forEach(p => {
+        const on = !!ticks[p.key];
+        if (on) total++;
+        if (i > 0 || now >= times[p.key]) possible++;
+        dots += '<i class="' + (on ? "on" : "") + '"></i>';
+      });
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "day" + (+d === +state.selected ? " sel" : "");
+      b.setAttribute("aria-label", d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" }) + ", " + PRAYERS.filter(p => ticks[p.key]).length + " of 5");
+      b.innerHTML = '<span class="dn">' + d.toLocaleDateString(undefined, { weekday: "short" }).replace(".", "") + '</span><span class="dd tnum">' + d.getDate() + '</span><span class="dots">' + dots + '</span>';
+      b.addEventListener("click", () => { state.selected = d; render(); });
+      box.appendChild(b);
+    }
+    $("weekScore").textContent = total + " of " + possible + " prayed";
+  }
+
+  function toggle(key) {
+    const k = keyOf(state.selected);
+    const day = { ...(state.days[k] || {}) };
+    day[key] = !day[key];
+    state.days = { ...state.days, [k]: day };
+    render();
+    markDirty(k);
+  }
+
+  // ---------- Settings ----------
+  function buildSettingsForm() {
+    const cs = $("citySel");
+    cs.innerHTML = CITIES.map(c => '<option value="' + c[0] + '">' + c[0] + '</option>').join("") + '<option value="__custom">Other place (coordinates)</option>';
+    $("methodSel").innerHTML = Object.keys(METHODS).map(k => '<option value="' + k + '">' + METHODS[k].name + '</option>').join("");
+    cs.addEventListener("change", () => { $("coordsBox").hidden = cs.value !== "__custom"; });
+    $("settingsForm").addEventListener("submit", e => {
+      e.preventDefault();
+      const s = { method: $("methodSel").value, asr: Number($("asrSel").value) };
+      if (cs.value === "__custom") {
+        const lat = parseFloat($("latIn").value), lng = parseFloat($("lngIn").value);
+        if (!(lat >= -90 && lat <= 90) || !(lng >= -180 && lng <= 180)) { $("latIn").focus(); return; }
+        Object.assign(s, { city: lat.toFixed(2) + ", " + lng.toFixed(2), lat, lng, custom: true });
+      } else {
+        const c = CITIES.find(x => x[0] === cs.value);
+        Object.assign(s, { city: c[0], lat: c[1], lng: c[2], custom: false });
+      }
+      state.settings = s;
+      $("settings").open = false;
+      render();
+      markDirty("settings");
+    });
+  }
+  function fillSettingsForm() {
+    const s = state.settings;
+    const known = !s.custom && CITIES.some(c => c[0] === s.city);
+    $("citySel").value = known ? s.city : "__custom";
+    $("coordsBox").hidden = known;
+    $("latIn").value = s.lat; $("lngIn").value = s.lng;
+    $("methodSel").value = s.method; $("asrSel").value = String(s.asr || 1);
+  }
+
+  // ---------- Boot ----------
+  $("prevDay").addEventListener("click", () => { state.selected = addDays(state.selected, -1); render(); });
+  $("nextDay").addEventListener("click", () => { state.selected = addDays(state.selected, 1); render(); });
+  $("todayBtn").addEventListener("click", () => { state.selected = startOfDay(new Date()); render(); });
+
+  loadLocal();
+  buildSettingsForm();
+  buildSyncForm();
+  fillSettingsForm();
+  showSyncState();
+  render();
+  if (sync && sync.gistId) runSync();
+
+  // Refresh countdown and statuses; jump to the new day at midnight.
+  let lastDay = keyOf(new Date());
+  setInterval(() => {
+    const k = keyOf(new Date());
+    if (k !== lastDay) {
+      if (keyOf(state.selected) === lastDay) state.selected = startOfDay(new Date());
+      lastDay = k;
+    }
+    render();
+  }, 20000);
+  // Pick up ticks made on the other device when coming back to the app.
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) return;
+    render();
+    if (sync && sync.gistId) runSync();
+  });
+})();
+</script>
+</body>
+</html>

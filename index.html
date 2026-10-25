@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <title>Salat Tracker</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -10,15 +10,17 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f2f3f1" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0f1412" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600&family=Amiri:wght@400&display=swap">
 <style>
-/* Layout: one narrow column like a phone app; the day reads top to bottom as the sky changes. */
+/* Layout: an app shell. Each tab is its own scrolling screen above a fixed bottom tab bar. */
 :root {
   --bg: #f2f3f1;
   --surface: #ffffff;
+  --bar: rgba(255, 255, 255, .86);
   --ink: #17201d;
   --muted: #66716c;
   --line: #dde1dd;
@@ -27,6 +29,7 @@
   --accent-soft: #dcefe8;
   --warn: #a8551b;
   --warn-soft: #f7e6d8;
+  --scrim: rgba(10, 16, 14, .38);
   --sky-fajr: linear-gradient(160deg, #2e3a6b 0%, #9a6f9e 55%, #f1b38f 100%);
   --sky-dhuhr: linear-gradient(160deg, #6fb4e6 0%, #bfe1f5 100%);
   --sky-asr: linear-gradient(160deg, #e9b65c 0%, #f6dfa6 100%);
@@ -35,35 +38,63 @@
   --font-display: "Instrument Serif", Georgia, "Times New Roman", serif;
   --font-body: "Bricolage Grotesque", -apple-system, "Segoe UI", system-ui, sans-serif;
   --font-arabic: "Amiri", "Geeza Pro", "Traditional Arabic", serif;
+  --gutter-l: max(16px, env(safe-area-inset-left, 0px));
+  --gutter-r: max(16px, env(safe-area-inset-right, 0px));
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0f1412; --surface: #171e1b; --ink: #e9eeeb; --muted: #95a29c; --line: #27302c;
+    --bg: #0f1412; --surface: #171e1b; --bar: rgba(23, 30, 27, .86); --ink: #e9eeeb; --muted: #95a29c; --line: #27302c;
     --accent: #3fbf9c; --accent-ink: #06231b; --accent-soft: #163a30; --warn: #e79a63; --warn-soft: #3a2618;
+    --scrim: rgba(0, 0, 0, .55);
     color-scheme: dark;
   }
 }
 * { box-sizing: border-box; }
-html, body { background: var(--bg); margin: 0; }
+html, body { height: 100%; margin: 0; background: var(--bg); overflow: hidden; overscroll-behavior: none; }
 body {
   color: var(--ink);
   font-family: var(--font-body);
   font-size: 16px;
   line-height: 1.45;
-  padding-left: max(16px, env(safe-area-inset-left, 0px));
-  padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-top: calc(20px + env(safe-area-inset-top, 0px));
-  padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
 }
+button { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 [hidden] { display: none !important; }
-.app { max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
 .tnum { font-variant-numeric: tabular-nums; }
 
-header.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.daynav { display: flex; align-items: center; gap: 6px; min-width: 0; }
+/* ---- Shell ---- */
+.shell { height: 100%; display: flex; flex-direction: column; }
+.screen {
+  flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain;
+  padding-top: calc(12px + env(safe-area-inset-top, 0px)); padding-bottom: 28px;
+  padding-left: var(--gutter-l); padding-right: var(--gutter-r);
+  animation: enter .22s ease-out;
+}
+@keyframes enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.wrap { max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+.titlebar { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; min-height: 52px; }
+.titlebar h1 { font-family: var(--font-display); font-weight: 400; font-size: 40px; line-height: 1; margin: 0; }
+.titlebar .side { color: var(--muted); font-size: 14px; padding-bottom: 4px; text-align: right; }
+
+.tabbar {
+  flex: none; background: var(--bar); border-top: 1px solid var(--line);
+  -webkit-backdrop-filter: saturate(1.6) blur(18px); backdrop-filter: saturate(1.6) blur(18px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px);
+}
+.tabbar .inner { max-width: 520px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); }
+.tab {
+  font: inherit; font-size: 11px; font-weight: 500; letter-spacing: .02em; background: none; border: 0; color: var(--muted);
+  display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 0 7px; cursor: pointer;
+}
+.tab svg { width: 25px; height: 25px; }
+.tab[aria-selected="true"] { color: var(--accent); }
+
+/* ---- Today ---- */
+.daynav { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.daynav .mid { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .iconbtn {
   width: 36px; height: 36px; flex: none; border-radius: 50%; border: 1px solid var(--line);
   background: var(--surface); color: var(--ink); font: inherit; font-size: 18px; line-height: 1;
@@ -73,21 +104,23 @@ header.top { display: flex; align-items: center; justify-content: space-between;
 .datebox { min-width: 0; }
 .datebox .greg { font-weight: 600; font-size: 15px; }
 .datebox .hijri { color: var(--muted); font-size: 13px; }
-.todaybtn {
+.pill {
   border: 1px solid var(--line); background: transparent; color: var(--muted);
   font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 999px; cursor: pointer;
 }
 
 .hero { display: flex; flex-direction: column; gap: 2px; }
-.hero .eyebrow { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-.hero .big { font-family: var(--font-display); font-size: clamp(40px, 11vw, 58px); line-height: 1.02; text-wrap: balance; }
+.eyebrow { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.hero .big { font-family: var(--font-display); font-size: clamp(40px, 11vw, 56px); line-height: 1.02; text-wrap: balance; }
 .hero .big em { font-style: italic; color: var(--accent); }
 .hero .sub { color: var(--muted); font-size: 15px; }
+.progress { height: 6px; border-radius: 999px; background: var(--line); overflow: hidden; margin-top: 10px; }
+.progress i { display: block; height: 100%; background: var(--accent); border-radius: inherit; transition: width .3s ease; }
 
 .list { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
 .row {
   display: grid; grid-template-columns: 44px minmax(0, 1fr) auto 48px; align-items: center; gap: 14px;
-  padding: 14px 14px 14px 16px; border-top: 1px solid var(--line);
+  padding: 13px 14px 13px 16px; border-top: 1px solid var(--line);
 }
 .row:first-child { border-top: 0; }
 .row.now { background: var(--accent-soft); }
@@ -107,10 +140,12 @@ header.top { display: flex; align-items: center; justify-content: space-between;
   width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--line); background: transparent;
   display: grid; place-items: center; cursor: pointer; color: transparent; transition: background .15s, border-color .15s, transform .1s;
 }
-.tick:active { transform: scale(.92); }
+.tick:active { transform: scale(.88); }
 .tick:disabled { cursor: default; opacity: .4; }
 .tick svg { width: 22px; height: 22px; }
 .row.done .tick { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.row.done .tick.pop { animation: pop .28s ease-out; }
+@keyframes pop { 0% { transform: scale(.8); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
 .row.missed .tick { border-color: var(--warn); }
 .sunrise {
   display: flex; align-items: center; gap: 10px; padding: 7px 16px; border-top: 1px solid var(--line);
@@ -118,202 +153,279 @@ header.top { display: flex; align-items: center; justify-content: space-between;
 }
 .sunrise::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #f1b38f; }
 
-.week { display: flex; flex-direction: column; gap: 10px; }
-.week .head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-.week .head h2 { font-family: var(--font-display); font-weight: 400; font-size: 26px; margin: 0; }
-.week .head .score { color: var(--muted); font-size: 14px; }
-.days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
-.day {
-  border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 8px 4px 10px;
-  display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; font: inherit; color: var(--ink);
-}
-.day.sel { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
-.day .dn { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
-.day .dd { font-weight: 600; font-size: 15px; }
-.dots { display: flex; flex-direction: column; gap: 3px; }
-.dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--line); display: block; }
-.dots i.on { background: var(--accent); }
-
-.quote { display: flex; flex-direction: column; gap: 10px; }
-.quote blockquote { margin: 0; }
-.quote .eyebrow { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.teacher-q { font-family: var(--font-display); font-style: italic; font-size: 25px; line-height: 1.22; text-wrap: pretty; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.card .head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.linkbtn { font: inherit; font-size: 13px; background: none; border: 0; color: var(--accent); cursor: pointer; padding: 4px 0; }
+.teacher-q { font-family: var(--font-display); font-style: italic; font-size: 24px; line-height: 1.22; text-wrap: pretty; margin: 0; }
 .teacher-q::before { content: "“"; } .teacher-q::after { content: "”"; }
 .by { font-size: 14px; color: var(--muted); }
 .by::before { content: "— "; }
-.linkbtn { font: inherit; font-size: 12px; letter-spacing: .04em; text-transform: none; background: none; border: 0; color: var(--accent); cursor: pointer; padding: 4px 0; }
 /* Your own notes: upright sans on a tinted card, so they never read as a teacher's words. */
 .mine { background: var(--accent-soft); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
 .mine .tag { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
 .mine .txt { font-size: 16px; font-weight: 500; white-space: pre-wrap; overflow-wrap: anywhere; }
 .mine .src { font-size: 13px; color: var(--muted); }
-.qlist { display: flex; flex-direction: column; gap: 10px; }
-.qlist h3 { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 6px 0 0; }
-.qitem { display: flex; flex-direction: column; gap: 2px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
-.qitem:last-child { border-bottom: 0; }
-.qitem .teacher-q { font-size: 19px; }
 .mine .row2 { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; }
-.delbtn { font: inherit; font-size: 13px; background: none; border: 0; color: var(--warn); cursor: pointer; padding: 2px 0; flex: none; }
-textarea, input[type="text"] {
-  font: inherit; font-size: 16px; color: var(--ink); background: var(--bg); border: 1px solid var(--line);
-  border-radius: 10px; padding: 10px 12px; width: 100%;
-}
-textarea { min-height: 84px; resize: vertical; }
-.tabs { display: flex; gap: 6px; }
-.tabs button { font: inherit; font-size: 14px; border: 1px solid var(--line); background: transparent; color: var(--muted); padding: 6px 12px; border-radius: 999px; cursor: pointer; }
-.tabs button[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.hint { display: flex; gap: 12px; align-items: flex-start; }
+.hint p { margin: 0; font-size: 14px; flex: 1; }
+.hint .x { flex: none; }
 
-details.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; }
-details.panel summary { cursor: pointer; padding: 14px 16px; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
-details.panel summary::-webkit-details-marker { display: none; }
-details.panel summary span { color: var(--muted); font-weight: 400; font-size: 14px; text-align: right; min-width: 0; }
-.form { display: grid; gap: 14px; padding: 0 16px 16px; }
+/* ---- History ---- */
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 2px; }
+.stat b { font-family: var(--font-display); font-weight: 400; font-size: 34px; line-height: 1; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 12px; color: var(--muted); }
+.cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.cal .dow { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); text-align: center; }
+.cday {
+  font: inherit; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; color: var(--ink);
+  aspect-ratio: 1 / 1.12; max-width: 100%; padding: 4px 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: pointer;
+}
+.cday.future { opacity: .35; cursor: default; }
+.cday.today { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.cday .n { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cday svg { width: 26px; height: 26px; }
+.legend { display: flex; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 13px; flex-wrap: wrap; }
+
+/* ---- Quotes ---- */
+.seg { display: grid; grid-template-columns: 1fr 1fr; background: var(--line); border-radius: 12px; padding: 3px; gap: 3px; }
+.seg button { font: inherit; font-size: 14px; font-weight: 500; border: 0; background: transparent; color: var(--muted); padding: 7px 0; border-radius: 9px; cursor: pointer; }
+.seg button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.qlist { display: flex; flex-direction: column; gap: 12px; }
+.qitem { display: flex; flex-direction: column; gap: 4px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.qitem:last-child { border-bottom: 0; }
+.qitem .teacher-q { font-size: 21px; }
+.addbtn {
+  width: 40px; height: 40px; border-radius: 50%; border: 0; background: var(--accent); color: var(--accent-ink);
+  display: grid; place-items: center; cursor: pointer; flex: none;
+}
+.addbtn svg { width: 22px; height: 22px; }
+.delbtn { font: inherit; font-size: 13px; background: none; border: 0; color: var(--warn); cursor: pointer; padding: 2px 0; flex: none; }
+.empty { color: var(--muted); font-size: 15px; text-align: center; padding: 28px 12px; }
+
+/* ---- Forms ---- */
+.form { display: grid; gap: 14px; }
 .field { display: grid; gap: 6px; }
 .field label { font-size: 13px; color: var(--muted); }
-select, input[type="number"], input[type="password"] {
+select, input[type="number"], input[type="password"], input[type="text"], textarea {
   font: inherit; font-size: 16px; color: var(--ink); background: var(--bg); border: 1px solid var(--line);
   border-radius: 10px; padding: 10px 12px; width: 100%;
 }
+textarea { min-height: 110px; resize: vertical; }
 .coords { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .btns { display: flex; gap: 10px; flex-wrap: wrap; }
 .savebtn {
   font: inherit; font-weight: 600; background: var(--accent); color: var(--accent-ink); border: 0;
-  border-radius: 10px; padding: 11px 14px; cursor: pointer;
+  border-radius: 12px; padding: 12px 16px; cursor: pointer;
 }
 .ghostbtn {
   font: inherit; background: transparent; color: var(--ink); border: 1px solid var(--line);
-  border-radius: 10px; padding: 10px 14px; cursor: pointer;
+  border-radius: 12px; padding: 11px 14px; cursor: pointer;
 }
 .note { color: var(--muted); font-size: 13px; margin: 0; }
 .note a { color: var(--accent); }
 .err { color: var(--warn); font-size: 13px; margin: 0; }
-.sync { color: var(--muted); font-size: 12px; text-align: center; }
+h2.sec { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0; }
+.status { color: var(--muted); font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--line); flex: none; }
+.status.on::before { background: var(--accent); }
+
+/* ---- Bottom sheet ---- */
+.scrim { position: fixed; inset: 0; background: var(--scrim); z-index: 20; display: flex; align-items: flex-end; justify-content: center; animation: fade .2s ease-out; }
+@keyframes fade { from { opacity: 0; } }
+.sheet {
+  width: 100%; max-width: 560px; background: var(--surface); border-radius: 22px 22px 0 0;
+  padding: 10px var(--gutter-r) calc(20px + env(safe-area-inset-bottom, 0px)) var(--gutter-l);
+  animation: up .25s cubic-bezier(.2, .8, .2, 1); max-height: 90%; overflow-y: auto;
+}
+@keyframes up { from { transform: translateY(100%); } }
+.grab { width: 40px; height: 5px; border-radius: 999px; background: var(--line); margin: 0 auto 12px; }
+.sheet h2 { font-family: var(--font-display); font-weight: 400; font-size: 30px; margin: 0 0 12px; }
+
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 </head>
 <body>
-<div class="app">
-  <header class="top">
-    <div class="daynav">
-      <button class="iconbtn" id="prevDay" aria-label="Previous day">‹</button>
-      <div class="datebox">
-        <div class="greg" id="gregDate">Today</div>
-        <div class="hijri" id="hijriDate"></div>
+<div class="shell">
+
+  <!-- TODAY -->
+  <main class="screen" id="screen-today">
+    <div class="wrap">
+      <div class="daynav">
+        <button class="iconbtn" id="prevDay" aria-label="Previous day">‹</button>
+        <div class="mid">
+          <div class="datebox">
+            <div class="greg" id="gregDate">Today</div>
+            <div class="hijri" id="hijriDate"></div>
+          </div>
+        </div>
+        <button class="pill" id="todayBtn" hidden>Today</button>
+        <button class="iconbtn" id="nextDay" aria-label="Next day">›</button>
       </div>
-      <button class="iconbtn" id="nextDay" aria-label="Next day">›</button>
-    </div>
-    <button class="todaybtn" id="todayBtn" hidden>Today</button>
-  </header>
 
-  <section class="hero" aria-live="polite">
-    <div class="eyebrow" id="heroEyebrow">Next prayer</div>
-    <div class="big" id="heroBig">Loading times</div>
-    <div class="sub tnum" id="heroSub"></div>
-  </section>
+      <section class="hero" aria-live="polite">
+        <div class="eyebrow" id="heroEyebrow">Next prayer</div>
+        <div class="big" id="heroBig">Loading times</div>
+        <div class="sub tnum" id="heroSub"></div>
+        <div class="progress" aria-hidden="true"><i id="heroBar" style="width:0"></i></div>
+      </section>
 
-  <section class="quote" aria-label="Today's reminder">
-    <div class="eyebrow"><span>Today's reminder</span><button type="button" class="linkbtn" id="nextQuote">Another</button></div>
-    <blockquote>
-      <div class="teacher-q" id="quoteText"></div>
-      <div class="by" id="quoteBy"></div>
-    </blockquote>
-    <div class="mine" id="myDaily" hidden>
-      <span class="tag">Your note</span>
-      <span class="txt" id="myDailyText"></span>
-      <span class="src" id="myDailySrc"></span>
-    </div>
-  </section>
+      <section class="list" id="list" aria-label="Prayers"></section>
 
-  <section class="list" id="list" aria-label="Prayers"></section>
-
-  <section class="week">
-    <div class="head">
-      <h2>Last 7 days</h2>
-      <div class="score tnum" id="weekScore"></div>
-    </div>
-    <div class="days" id="days"></div>
-  </section>
-
-  <details class="panel" id="quotesPanel">
-    <summary>Quotes and notes <span id="quotesSummary"></span></summary>
-    <div class="form">
-      <form class="form" id="noteForm" style="padding:0">
-        <div class="field">
-          <label for="noteText">Add something you want to remember</label>
-          <textarea id="noteText" maxlength="1000" placeholder="A quote, a lesson, a reminder to yourself"></textarea>
+      <section class="card" aria-label="Today's reminder">
+        <div class="head"><span class="eyebrow">Today's reminder</span><button type="button" class="linkbtn" id="nextQuote">Another</button></div>
+        <blockquote style="margin:0; display:flex; flex-direction:column; gap:6px">
+          <p class="teacher-q" id="quoteText"></p>
+          <div class="by" id="quoteBy"></div>
+        </blockquote>
+        <div class="mine" id="myDaily" hidden>
+          <span class="tag">Your note</span>
+          <span class="txt" id="myDailyText"></span>
+          <span class="src" id="myDailySrc"></span>
         </div>
-        <div class="field">
-          <label for="noteSrc">Source (optional)</label>
-          <input type="text" id="noteSrc" maxlength="120" placeholder="Who said it, or where you found it">
-        </div>
-        <div class="btns"><button type="submit" class="savebtn">Add note</button></div>
-      </form>
-      <div class="tabs" role="tablist">
+      </section>
+
+      <section class="card hint" id="installHint" hidden>
+        <p>For the full-screen app, tap <b>Share</b> in Safari, then <b>Add to Home Screen</b>.</p>
+        <button type="button" class="linkbtn x" id="hideHint">Got it</button>
+      </section>
+    </div>
+  </main>
+
+  <!-- HISTORY -->
+  <main class="screen" id="screen-history" hidden>
+    <div class="wrap">
+      <div class="titlebar"><h1>History</h1></div>
+      <div class="stats">
+        <div class="stat"><b id="stStreak">0</b><span>day streak, all 5</span></div>
+        <div class="stat"><b id="stWeek">0</b><span>prayed in 7 days</span></div>
+        <div class="stat"><b id="stMonth">0%</b><span>last 30 days</span></div>
+      </div>
+      <section class="card">
+        <div class="head"><h2 class="sec">Last 5 weeks</h2></div>
+        <div class="cal" id="cal"></div>
+        <div class="legend"><span>The ring fills with each prayer ticked</span><span>Tap a day to open it</span></div>
+      </section>
+    </div>
+  </main>
+
+  <!-- QUOTES -->
+  <main class="screen" id="screen-quotes" hidden>
+    <div class="wrap">
+      <div class="titlebar">
+        <h1>Quotes</h1>
+        <button type="button" class="addbtn" id="openAdd" aria-label="Add a note">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+      </div>
+      <div class="seg" role="tablist">
         <button type="button" role="tab" id="tabMine" aria-selected="true">Your notes</button>
         <button type="button" role="tab" id="tabTeachers" aria-selected="false">Teachers</button>
       </div>
       <div class="qlist" id="qlist"></div>
     </div>
-  </details>
+  </main>
 
-  <details class="panel" id="settings">
-    <summary>Location and method <span id="settingsSummary"></span></summary>
-    <form class="form" id="settingsForm">
-      <div class="field">
-        <label for="citySel">City</label>
-        <select id="citySel"></select>
-      </div>
-      <div class="coords" id="coordsBox" hidden>
-        <div class="field"><label for="latIn">Latitude</label><input type="number" id="latIn" step="0.0001" min="-90" max="90"></div>
-        <div class="field"><label for="lngIn">Longitude</label><input type="number" id="lngIn" step="0.0001" min="-180" max="180"></div>
-      </div>
-      <div class="field">
-        <label for="methodSel">Calculation method</label>
-        <select id="methodSel"></select>
-      </div>
-      <div class="field">
-        <label for="asrSel">Asr</label>
-        <select id="asrSel">
-          <option value="1">Standard (Shafi'i, Maliki, Hanbali)</option>
-          <option value="2">Hanafi</option>
-        </select>
-      </div>
-      <p class="note">Times are calculated on the device. If your local mosque differs by a few minutes, try another method.</p>
-      <div class="btns"><button type="submit" class="savebtn">Save</button></div>
-    </form>
-  </details>
+  <!-- SETTINGS -->
+  <main class="screen" id="screen-settings" hidden>
+    <div class="wrap">
+      <div class="titlebar"><h1>Settings</h1></div>
 
-  <details class="panel" id="syncPanel">
-    <summary>Sync between devices <span id="syncSummary">Off</span></summary>
-    <form class="form" id="syncForm">
-      <div id="syncOff">
-        <div class="form" style="padding:0">
-          <p class="note">Your ticks are saved in a private gist on your GitHub account. Create a token with only the
-            <b>Gists: Read and write</b> permission at
-            <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens</a>,
-            then paste it here on each device. It stays in this browser.</p>
+      <section class="card">
+        <h2 class="sec">Prayer times</h2>
+        <form class="form" id="settingsForm">
           <div class="field">
-            <label for="tokenIn">GitHub token</label>
-            <input type="password" id="tokenIn" autocomplete="off" spellcheck="false" placeholder="github_pat_…">
+            <label for="citySel">City</label>
+            <select id="citySel"></select>
           </div>
-          <div class="btns"><button type="submit" class="savebtn" id="connectBtn">Connect</button></div>
-        </div>
-      </div>
-      <div id="syncOn" hidden>
-        <div class="form" style="padding:0">
-          <p class="note" id="syncInfo"></p>
-          <div class="btns">
+          <div class="coords" id="coordsBox" hidden>
+            <div class="field"><label for="latIn">Latitude</label><input type="number" id="latIn" step="0.0001" min="-90" max="90"></div>
+            <div class="field"><label for="lngIn">Longitude</label><input type="number" id="lngIn" step="0.0001" min="-180" max="180"></div>
+          </div>
+          <div class="field">
+            <label for="methodSel">Calculation method</label>
+            <select id="methodSel"></select>
+          </div>
+          <div class="field">
+            <label for="asrSel">Asr</label>
+            <select id="asrSel">
+              <option value="1">Standard (Shafi'i, Maliki, Hanbali)</option>
+              <option value="2">Hanafi</option>
+            </select>
+          </div>
+          <p class="note">Times are calculated on the device. If your local mosque differs by a few minutes, try another method.</p>
+          <div class="btns"><button type="submit" class="savebtn" id="saveSettings">Save</button></div>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2 class="sec">Sync between devices</h2>
+        <div class="status" id="syncStatus">Off</div>
+        <form class="form" id="syncForm">
+          <div id="syncOff" class="form">
+            <p class="note">Your ticks and notes are saved in a private gist on your GitHub account. Create a token with only the
+              <b>Gists: Read and write</b> permission at
+              <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com/settings/personal-access-tokens</a>,
+              then paste it here on each device. It stays on this device.</p>
+            <div class="field">
+              <label for="tokenIn">GitHub token</label>
+              <input type="password" id="tokenIn" autocomplete="off" spellcheck="false" placeholder="github_pat_…">
+            </div>
+            <div class="btns"><button type="submit" class="savebtn" id="connectBtn">Connect</button></div>
+          </div>
+          <div id="syncOn" class="btns" hidden>
             <button type="button" class="ghostbtn" id="syncNow">Sync now</button>
             <button type="button" class="ghostbtn" id="disconnect">Disconnect this device</button>
           </div>
-        </div>
-      </div>
-      <p class="err" id="syncErr" hidden></p>
-    </form>
-  </details>
+          <p class="err" id="syncErr" hidden></p>
+        </form>
+      </section>
+    </div>
+  </main>
 
-  <div class="sync" id="sync">Saved on this device</div>
+  <nav class="tabbar" aria-label="Sections">
+    <div class="inner" role="tablist">
+      <button class="tab" role="tab" data-screen="today" aria-selected="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4"/></svg>
+        Today
+      </button>
+      <button class="tab" role="tab" data-screen="history" aria-selected="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
+        History
+      </button>
+      <button class="tab" role="tab" data-screen="quotes" aria-selected="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6.5h14a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 3v-3H5A1.5 1.5 0 0 1 3.5 16V8A1.5 1.5 0 0 1 5 6.5z"/><path d="M8 11h8M8 14h5"/></svg>
+        Quotes
+      </button>
+      <button class="tab" role="tab" data-screen="settings" aria-selected="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
+        Settings
+      </button>
+    </div>
+  </nav>
+</div>
+
+<!-- Add note sheet -->
+<div class="scrim" id="addSheet" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="addTitle">
+    <div class="grab"></div>
+    <h2 id="addTitle">New note</h2>
+    <form class="form" id="noteForm">
+      <div class="field">
+        <label for="noteText">Something you want to remember</label>
+        <textarea id="noteText" maxlength="1000" placeholder="A quote, a lesson, a reminder to yourself"></textarea>
+      </div>
+      <div class="field">
+        <label for="noteSrc">Source (optional)</label>
+        <input type="text" id="noteSrc" maxlength="120" placeholder="Who said it, or where you found it">
+      </div>
+      <div class="btns">
+        <button type="submit" class="savebtn">Add note</button>
+        <button type="button" class="ghostbtn" id="cancelAdd">Cancel</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <script>
@@ -448,10 +560,12 @@ select, input[type="number"], input[type="password"] {
     settings: { ...DEFAULT_SETTINGS },
     days: {},            // "2026-10-25" -> { fajr: true, ... }
     notes: {},           // id -> { text, source, created, deleted? }
-    selected: startOfDay(new Date())
+    selected: startOfDay(new Date()),
+    screen: "today"
   };
   let quoteShift = 0;    // "Another" taps since load
   let quoteTab = "mine";
+  let justTicked = null;
 
   function startOfDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
   function keyOf(d) {
@@ -463,10 +577,12 @@ select, input[type="number"], input[type="password"] {
     const s = state.settings;
     return prayerTimes(d.getFullYear(), d.getMonth() + 1, d.getDate(), s.lat, s.lng, s.method, Number(s.asr) || 1);
   }
+  const countDay = d => { const t = state.days[keyOf(d)] || {}; return PRAYERS.filter(p => t[p.key]).length; };
 
   // ---------- Storage: this browser, plus a private GitHub gist when connected ----------
   const LS_KEY = "salat-tracker-v1";
   const LS_SYNC = "salat-tracker-sync";
+  const LS_HINT = "salat-tracker-hint";
   const GIST_FILE = "salat-tracker.json";
   const ls = {
     get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
@@ -518,7 +634,7 @@ select, input[type="number"], input[type="password"] {
       body: JSON.stringify({
         description: "Salat Tracker data (private)",
         public: false,
-        files: { [GIST_FILE]: { content: JSON.stringify({ version: 1, settings: state.settings, days: {} }) } }
+        files: { [GIST_FILE]: { content: JSON.stringify({ version: 1, settings: state.settings, days: {}, notes: {} }) } }
       })
     });
     return created.id;
@@ -537,7 +653,7 @@ select, input[type="number"], input[type="password"] {
     if (!sync) return Promise.resolve();
     if (syncing) return syncing.then(runSync);
     syncing = (async () => {
-      setSync("Syncing…");
+      setStatus("Syncing…", true);
       const remote = await readGist();
       const pending = { ...dirty };
       const days = { ...(remote.days || {}) };
@@ -566,13 +682,12 @@ select, input[type="number"], input[type="password"] {
       lastSynced = new Date();
       showSyncState();
       fillSettingsForm();
-      render();
-      renderQuoteList();
+      renderAll();
       if (Object.keys(dirty).length) schedulePush();
     })().catch(err => {
       if (err.status === 401 || err.status === 403) setSyncError("GitHub refused the token. Check that it has the Gists: Read and write permission and hasn't expired.");
       else if (err.status === 404) { sync.gistId = null; ls.set(LS_SYNC, sync); setSyncError("The sync gist is gone. Tap Sync now to create a new one."); }
-      else setSync("Offline. Your ticks are kept on this device and will sync later.");
+      else setStatus("Offline. Changes are kept on this device and will sync later.", false);
     }).finally(() => { syncing = null; });
     return syncing;
   }
@@ -583,25 +698,19 @@ select, input[type="number"], input[type="password"] {
   }
   function markDirty(k) { dirty[k] = true; saveLocal(); schedulePush(); }
 
-  function setSync(text) { document.getElementById("sync").textContent = text; }
+  function setStatus(text, on) { const s = $("syncStatus"); s.textContent = text; s.classList.toggle("on", !!on); }
   function setSyncError(text) {
-    const e = document.getElementById("syncErr");
+    const e = $("syncErr");
     e.textContent = text; e.hidden = !text;
-    if (text) setSync("Sync paused. Your ticks are kept on this device.");
+    if (text) setStatus("Paused. Changes are kept on this device.", false);
   }
   function showSyncState() {
     const on = !!sync;
     $("syncOff").hidden = on;
     $("syncOn").hidden = !on;
-    $("syncSummary").textContent = on ? "On" : "Off";
     setSyncError("");
-    if (on) {
-      $("syncInfo").textContent = "Connected to a private gist on your GitHub account." +
-        (lastSynced ? " Last synced at " + fmtTime(lastSynced) + "." : "");
-      setSync(lastSynced ? "Synced with GitHub at " + fmtTime(lastSynced) : "Connected to GitHub");
-    } else {
-      setSync("Saved on this device only. Turn on sync below to share with your other devices.");
-    }
+    if (on) setStatus(lastSynced ? "Synced with GitHub at " + fmtTime(lastSynced) : "Connected to GitHub", true);
+    else setStatus("Off. Saved on this device only.", false);
   }
   function buildSyncForm() {
     $("syncForm").addEventListener("submit", async e => {
@@ -640,11 +749,27 @@ select, input[type="number"], input[type="password"] {
     });
   }
 
-  // ---------- Render ----------
+  // ---------- Navigation ----------
   const $ = id => document.getElementById(id);
+  function showScreen(name) {
+    if (state.screen === name) { $("screen-" + name).scrollTo({ top: 0, behavior: "smooth" }); return; }
+    state.screen = name;
+    document.querySelectorAll(".screen").forEach(s => { s.hidden = s.id !== "screen-" + name; });
+    document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", t.dataset.screen === name));
+    $("screen-" + name).scrollTop = 0;
+    if (name === "history") renderHistory();
+    if (name === "quotes") renderQuoteList();
+  }
+  function renderAll() {
+    renderToday();
+    if (state.screen === "history") renderHistory();
+    if (state.screen === "quotes") renderQuoteList();
+  }
+
+  // ---------- Today ----------
   const CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 
-  function render() {
+  function renderToday() {
     const now = new Date();
     const today = startOfDay(now);
     const sel = state.selected;
@@ -683,7 +808,7 @@ select, input[type="number"], input[type="password"] {
         '<div class="sky ' + p.key + '" aria-hidden="true"></div>' +
         '<div class="name"><span class="en">' + p.en + chip + '</span><span class="ar" lang="ar">' + p.ar + '</span></div>' +
         '<div class="time tnum">' + fmtTime(t) + '</div>' +
-        '<button class="tick" type="button" id="tick-' + p.key + '" aria-pressed="' + done + '" aria-label="' +
+        '<button class="tick' + (justTicked === p.key && done ? " pop" : "") + '" type="button" aria-pressed="' + done + '" aria-label="' +
           (done ? "Mark " + p.en + " as not prayed" : "Mark " + p.en + " as prayed") + '"' + (locked && !done ? " disabled" : "") + '>' + CHECK + '</button>';
       row.querySelector("button").addEventListener("click", () => toggle(p.key));
       list.appendChild(row);
@@ -695,16 +820,16 @@ select, input[type="number"], input[type="password"] {
         list.appendChild(sr);
       }
     });
+    justTicked = null;
 
-    renderHero(now, today, isToday, ticks, times);
+    const n = PRAYERS.filter(p => ticks[p.key]).length;
+    $("heroBar").style.width = (n / 5 * 100) + "%";
+    renderHero(now, today, isToday, n, times);
     renderQuote(sel);
-    renderWeek(today);
-    $("settingsSummary").textContent = state.settings.city + " · " + state.settings.method;
   }
 
-  function renderHero(now, today, isToday, ticks, times) {
+  function renderHero(now, today, isToday, n, times) {
     if (!isToday) {
-      const n = PRAYERS.filter(p => ticks[p.key]).length;
       $("heroEyebrow").textContent = state.selected > today ? "Upcoming day" : "Looking back";
       $("heroBig").innerHTML = "<em>" + n + "</em> of 5 prayed";
       $("heroSub").textContent = state.selected > today ? "" : "You can still tick prayers you made up (qada).";
@@ -716,54 +841,86 @@ select, input[type="number"], input[type="password"] {
     const mins = Math.max(0, Math.ceil((next.t - now) / 60000));
     const h = Math.floor(mins / 60), m = mins % 60;
     const left = h ? h + " h " + String(m).padStart(2, "0") + " min" : m + " min";
-    const n = PRAYERS.filter(p => ticks[p.key]).length;
     $("heroEyebrow").textContent = "Next prayer" + (next.tomorrow ? ", tomorrow" : "");
     $("heroBig").innerHTML = "<em>" + next.p.en + "</em> in " + left;
     $("heroSub").textContent = "It's " + fmtTime(now) + " · " + n + " of 5 prayed today";
   }
 
-  function renderWeek(today) {
-    const box = $("days");
-    box.innerHTML = "";
-    let total = 0, possible = 0;
+  function toggle(key) {
+    const k = keyOf(state.selected);
+    const day = { ...(state.days[k] || {}) };
+    day[key] = !day[key];
+    state.days = { ...state.days, [k]: day };
+    if (day[key]) { justTicked = key; if (navigator.vibrate) navigator.vibrate(12); }
+    renderToday();
+    markDirty(k);
+  }
+
+  // ---------- History ----------
+  function ring(n) {
+    const r = 10, c = 2 * Math.PI * r, f = n / 5;
+    return '<svg viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="' + r + '" fill="none" stroke="var(--line)" stroke-width="3"/>' +
+      (n ? '<circle cx="13" cy="13" r="' + r + '" fill="' + (n === 5 ? "var(--accent)" : "none") + '" fill-opacity="' + (n === 5 ? ".18" : "0") +
+        '" stroke="var(--accent)" stroke-width="3" stroke-linecap="round" stroke-dasharray="' + (c * f).toFixed(2) + ' ' + c.toFixed(2) +
+        '" transform="rotate(-90 13 13)"/>' : "") + '</svg>';
+  }
+  function renderHistory() {
     const now = new Date();
-    for (let i = 6; i >= 0; i--) {
-      const d = addDays(today, -i);
-      const ticks = state.days[keyOf(d)] || {};
-      const times = i === 0 ? timesFor(d) : null;
-      let dots = "";
-      PRAYERS.forEach(p => {
-        const on = !!ticks[p.key];
-        if (on) total++;
-        if (i > 0 || now >= times[p.key]) possible++;
-        dots += '<i class="' + (on ? "on" : "") + '"></i>';
-      });
+    const today = startOfDay(now);
+    const todayTimes = timesFor(today);
+    const dueToday = PRAYERS.filter(p => now >= todayTimes[p.key]).length;
+
+    // Streak: full days in a row; today counts once all five are ticked.
+    let streak = 0;
+    let d = countDay(today) === 5 ? today : addDays(today, -1);
+    while (countDay(d) === 5) { streak++; d = addDays(d, -1); }
+    let week = 0;
+    for (let i = 0; i < 7; i++) week += countDay(addDays(today, -i));
+    let month = 0;
+    for (let i = 0; i < 30; i++) month += countDay(addDays(today, -i));
+    const possible = 29 * 5 + dueToday;
+    $("stStreak").textContent = streak;
+    $("stWeek").textContent = week;
+    $("stMonth").textContent = possible ? Math.round(month / possible * 100) + "%" : "–";
+
+    // 5 weeks, Monday first, ending with this week.
+    const mondayOffset = (today.getDay() + 6) % 7;
+    const start = addDays(today, -mondayOffset - 28);
+    const cal = $("cal");
+    const dows = [];
+    for (let i = 0; i < 7; i++) dows.push('<div class="dow">' + addDays(start, i).toLocaleDateString(undefined, { weekday: "narrow" }) + '</div>');
+    cal.innerHTML = dows.join("");
+    for (let i = 0; i < 35; i++) {
+      const day = addDays(start, i);
+      const future = day > today;
+      const n = countDay(day);
       const b = document.createElement("button");
       b.type = "button";
-      b.className = "day" + (+d === +state.selected ? " sel" : "");
-      b.setAttribute("aria-label", d.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" }) + ", " + PRAYERS.filter(p => ticks[p.key]).length + " of 5");
-      b.innerHTML = '<span class="dn">' + d.toLocaleDateString(undefined, { weekday: "short" }).replace(".", "") + '</span><span class="dd tnum">' + d.getDate() + '</span><span class="dots">' + dots + '</span>';
-      b.addEventListener("click", () => { state.selected = d; render(); });
-      box.appendChild(b);
+      b.className = "cday" + (future ? " future" : "") + (+day === +today ? " today" : "");
+      b.disabled = future;
+      b.setAttribute("aria-label", day.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" }) + ", " + n + " of 5");
+      b.innerHTML = '<span class="n">' + day.getDate() + '</span>' + ring(future ? 0 : n);
+      b.addEventListener("click", () => { state.selected = day; renderToday(); showScreen("today"); });
+      cal.appendChild(b);
     }
-    $("weekScore").textContent = total + " of " + possible + " prayed";
   }
 
   // ---------- Quotes and notes ----------
   const dayIndex = d => Math.round(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
   const liveNotes = () => Object.entries(state.notes).filter(([, n]) => !n.deleted).sort((a, b) => b[1].created - a[1].created);
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const mod = (a, n) => ((a % n) + n) % n;
 
   function renderQuote(d) {
     // Same quote all day on every device; a stride of 7 keeps one teacher from repeating day after day.
     const i = dayIndex(d);
-    const q = QUOTES[((i * 7 + quoteShift) % QUOTES.length + QUOTES.length) % QUOTES.length];
+    const q = QUOTES[mod(i * 7 + quoteShift, QUOTES.length)];
     $("quoteText").textContent = q[0];
     $("quoteBy").textContent = q[1];
     const notes = liveNotes();
     $("myDaily").hidden = !notes.length;
     if (notes.length) {
-      const n = notes[((i + quoteShift) % notes.length + notes.length) % notes.length][1];
+      const n = notes[mod(i + quoteShift, notes.length)][1];
       $("myDailyText").textContent = n.text;
       $("myDailySrc").textContent = n.source ? "— " + n.source : "";
       $("myDailySrc").hidden = !n.source;
@@ -772,16 +929,16 @@ select, input[type="number"], input[type="password"] {
 
   function renderQuoteList() {
     const notes = liveNotes();
-    $("quotesSummary").textContent = notes.length + (notes.length === 1 ? " note" : " notes") + " · " + QUOTES.length + " quotes";
     $("tabMine").setAttribute("aria-selected", quoteTab === "mine");
     $("tabTeachers").setAttribute("aria-selected", quoteTab === "teachers");
+    $("tabMine").textContent = "Your notes" + (notes.length ? " · " + notes.length : "");
     const box = $("qlist");
     if (quoteTab === "teachers") {
-      box.innerHTML = QUOTES.map(q => '<div class="qitem"><div class="teacher-q">' + esc(q[0]) + '</div><div class="by">' + esc(q[1]) + '</div></div>').join("");
+      box.innerHTML = QUOTES.map(q => '<div class="qitem"><p class="teacher-q">' + esc(q[0]) + '</p><div class="by">' + esc(q[1]) + '</div></div>').join("");
       return;
     }
     if (!notes.length) {
-      box.innerHTML = '<p class="note">Nothing here yet. Notes you add show up here and one appears each day under the teacher\'s quote.</p>';
+      box.innerHTML = '<div class="empty">No notes yet.<br>Tap <b>+</b> to add a quote or a reminder for yourself. One shows on Today each day.</div>';
       return;
     }
     box.innerHTML = notes.map(([id, n]) =>
@@ -791,7 +948,7 @@ select, input[type="number"], input[type="password"] {
       if (b.dataset.armed) {
         const id = b.dataset.id;
         state.notes = { ...state.notes, [id]: { ...state.notes[id], deleted: true } };
-        renderQuoteList(); render(); markDirty("note:" + id);
+        renderQuoteList(); renderQuote(state.selected); markDirty("note:" + id);
       } else {
         b.dataset.armed = "1"; b.textContent = "Tap again to delete";
         setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = "Delete"; } }, 3000);
@@ -799,10 +956,17 @@ select, input[type="number"], input[type="password"] {
     }));
   }
 
+  function openSheet() { $("addSheet").hidden = false; setTimeout(() => $("noteText").focus(), 260); }
+  function closeSheet() { $("addSheet").hidden = true; }
+
   function buildQuotes() {
     $("nextQuote").addEventListener("click", () => { quoteShift++; renderQuote(state.selected); });
     $("tabMine").addEventListener("click", () => { quoteTab = "mine"; renderQuoteList(); });
     $("tabTeachers").addEventListener("click", () => { quoteTab = "teachers"; renderQuoteList(); });
+    $("openAdd").addEventListener("click", openSheet);
+    $("cancelAdd").addEventListener("click", closeSheet);
+    $("addSheet").addEventListener("click", e => { if (e.target === $("addSheet")) closeSheet(); });
+    document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("addSheet").hidden) closeSheet(); });
     $("noteForm").addEventListener("submit", e => {
       e.preventDefault();
       const text = $("noteText").value.trim();
@@ -811,17 +975,9 @@ select, input[type="number"], input[type="password"] {
       state.notes = { ...state.notes, [id]: { text, source: $("noteSrc").value.trim(), created: Date.now() } };
       $("noteText").value = ""; $("noteSrc").value = "";
       quoteTab = "mine";
-      renderQuoteList(); render(); markDirty("note:" + id);
+      closeSheet();
+      renderQuoteList(); renderQuote(state.selected); markDirty("note:" + id);
     });
-  }
-
-  function toggle(key) {
-    const k = keyOf(state.selected);
-    const day = { ...(state.days[k] || {}) };
-    day[key] = !day[key];
-    state.days = { ...state.days, [k]: day };
-    render();
-    markDirty(k);
   }
 
   // ---------- Settings ----------
@@ -842,9 +998,11 @@ select, input[type="number"], input[type="password"] {
         Object.assign(s, { city: c[0], lat: c[1], lng: c[2], custom: false });
       }
       state.settings = s;
-      $("settings").open = false;
-      render();
+      renderToday();
       markDirty("settings");
+      const b = $("saveSettings");
+      b.textContent = "Saved";
+      setTimeout(() => { b.textContent = "Save"; }, 1500);
     });
   }
   function fillSettingsForm() {
@@ -857,9 +1015,16 @@ select, input[type="number"], input[type="password"] {
   }
 
   // ---------- Boot ----------
-  $("prevDay").addEventListener("click", () => { state.selected = addDays(state.selected, -1); render(); });
-  $("nextDay").addEventListener("click", () => { state.selected = addDays(state.selected, 1); render(); });
-  $("todayBtn").addEventListener("click", () => { state.selected = startOfDay(new Date()); render(); });
+  document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => showScreen(t.dataset.screen)));
+  $("prevDay").addEventListener("click", () => { state.selected = addDays(state.selected, -1); renderToday(); });
+  $("nextDay").addEventListener("click", () => { state.selected = addDays(state.selected, 1); renderToday(); });
+  $("todayBtn").addEventListener("click", () => { state.selected = startOfDay(new Date()); renderToday(); });
+
+  // Suggest installing on iPhone when opened in Safari rather than from the home screen.
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  const standalone = window.navigator.standalone === true || (window.matchMedia && matchMedia("(display-mode: standalone)").matches);
+  $("installHint").hidden = !(isIOS && !standalone && !ls.get(LS_HINT));
+  $("hideHint").addEventListener("click", () => { ls.set(LS_HINT, true); $("installHint").hidden = true; });
 
   loadLocal();
   buildSettingsForm();
@@ -867,9 +1032,12 @@ select, input[type="number"], input[type="password"] {
   buildQuotes();
   fillSettingsForm();
   showSyncState();
-  render();
-  renderQuoteList();
+  renderToday();
   if (sync && sync.gistId) runSync();
+
+  if ("serviceWorker" in navigator && location.protocol === "https:") {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
 
   // Refresh countdown and statuses; jump to the new day at midnight.
   let lastDay = keyOf(new Date());
@@ -879,12 +1047,12 @@ select, input[type="number"], input[type="password"] {
       if (keyOf(state.selected) === lastDay) state.selected = startOfDay(new Date());
       lastDay = k;
     }
-    render();
+    renderAll();
   }, 20000);
-  // Pick up ticks made on the other device when coming back to the app.
+  // Pick up changes made on the other device when coming back to the app.
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) return;
-    render();
+    renderAll();
     if (sync && sync.gistId) runSync();
   });
 })();

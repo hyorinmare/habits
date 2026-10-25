@@ -203,6 +203,31 @@ button { -webkit-user-select: none; user-select: none; -webkit-touch-callout: no
 .delbtn { font: inherit; font-size: 13px; background: none; border: 0; color: var(--warn); cursor: pointer; padding: 2px 0; flex: none; }
 .empty { color: var(--muted); font-size: 15px; text-align: center; padding: 28px 12px; }
 
+/* ---- Habits ---- */
+.hlist { display: flex; flex-direction: column; }
+.hrow { display: grid; grid-template-columns: minmax(0, 1fr) 48px; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.hrow:first-child { border-top: 0; padding-top: 2px; }
+.hname { font: inherit; background: none; border: 0; color: var(--ink); text-align: left; padding: 0; cursor: pointer; min-width: 0; display: flex; flex-direction: column; }
+.hname b { font-weight: 600; font-size: 17px; overflow-wrap: anywhere; }
+.hname span { font-size: 13px; color: var(--muted); }
+.hrow.done .tick { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.hrow.done .tick.pop { animation: pop .28s ease-out; }
+.addsmall { width: 32px; height: 32px; }
+.addsmall svg { width: 18px; height: 18px; }
+.headbtns { display: flex; align-items: center; gap: 12px; }
+
+/* ---- History: picker and month calendar ---- */
+.chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 calc(-1 * var(--gutter-r)) 0 calc(-1 * var(--gutter-l)); padding: 2px var(--gutter-r) 2px var(--gutter-l); }
+.chips::-webkit-scrollbar { display: none; }
+.chips button { font: inherit; font-size: 14px; flex: none; border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 7px 14px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
+.chips button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.monthnav { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.monthnav h2 { font-family: var(--font-display); font-weight: 400; font-size: 26px; margin: 0; text-align: center; flex: 1; }
+.cblank { aspect-ratio: 1 / 1.12; }
+.cday.before { opacity: .5; }
+.msum { font-size: 15px; }
+.msum b { font-weight: 600; }
+
 /* ---- Forms ---- */
 .form { display: grid; gap: 14px; }
 .field { display: grid; gap: 6px; }
@@ -273,6 +298,16 @@ h2.sec { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transfor
 
       <section class="list" id="list" aria-label="Prayers"></section>
 
+      <section class="card" aria-label="Habits">
+        <div class="head">
+          <span class="eyebrow" id="habitsTitle">Habits</span>
+          <button type="button" class="addbtn addsmall" id="addHabitBtn" aria-label="Add a habit">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
+        <div class="hlist" id="hlist"></div>
+      </section>
+
       <section class="card" aria-label="Today's reminder">
         <div class="head"><span class="eyebrow">Today's reminder</span><button type="button" class="linkbtn" id="nextQuote">Another</button></div>
         <blockquote style="margin:0; display:flex; flex-direction:column; gap:6px">
@@ -297,15 +332,21 @@ h2.sec { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transfor
   <main class="screen" id="screen-history" hidden>
     <div class="wrap">
       <div class="titlebar"><h1>History</h1></div>
+      <div class="chips" id="histPick" aria-label="Show history for"></div>
       <div class="stats">
-        <div class="stat"><b id="stStreak">0</b><span>day streak, all 5</span></div>
-        <div class="stat"><b id="stWeek">0</b><span>prayed in 7 days</span></div>
+        <div class="stat"><b id="stStreak">0</b><span id="stStreakL">day streak</span></div>
+        <div class="stat"><b id="stWeek">0</b><span id="stWeekL">last 7 days</span></div>
         <div class="stat"><b id="stMonth">0%</b><span>last 30 days</span></div>
       </div>
       <section class="card">
-        <div class="head"><h2 class="sec">Last 5 weeks</h2></div>
+        <div class="monthnav">
+          <button class="iconbtn" id="prevMonth" aria-label="Previous month">‹</button>
+          <h2 id="monthTitle"></h2>
+          <button class="iconbtn" id="nextMonth" aria-label="Next month">›</button>
+        </div>
         <div class="cal" id="cal"></div>
-        <div class="legend"><span>The ring fills with each prayer ticked</span><span>Tap a day to open it</span></div>
+        <div class="msum tnum" id="monthSum"></div>
+        <div class="legend"><span id="legendText">The ring fills with each prayer ticked</span><span>Tap a day to open it</span></div>
       </section>
     </div>
   </main>
@@ -423,6 +464,26 @@ h2.sec { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transfor
       <div class="btns">
         <button type="submit" class="savebtn">Add note</button>
         <button type="button" class="ghostbtn" id="cancelAdd">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Habit sheet: add or edit -->
+<div class="scrim" id="habitSheet" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="habitTitle">
+    <div class="grab"></div>
+    <h2 id="habitTitle">New habit</h2>
+    <form class="form" id="habitForm">
+      <div class="field">
+        <label for="habitName">Habit</label>
+        <input type="text" id="habitName" maxlength="60" placeholder="Read one page of Quran, walk 20 minutes…" autocomplete="off">
+      </div>
+      <p class="note">Tracked every day. Tick it on Today, see your record in History.</p>
+      <div class="btns">
+        <button type="submit" class="savebtn" id="habitSave">Add habit</button>
+        <button type="button" class="ghostbtn" id="habitCancel">Cancel</button>
+        <button type="button" class="delbtn" id="habitDelete" hidden>Delete habit</button>
       </div>
     </form>
   </div>
@@ -560,9 +621,13 @@ h2.sec { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transfor
     settings: { ...DEFAULT_SETTINGS },
     days: {},            // "2026-10-25" -> { fajr: true, ... }
     notes: {},           // id -> { text, source, created, deleted? }
+    habits: {},          // id -> { name, created, deleted? }; ticks live in days[key]["h:" + id]
     selected: startOfDay(new Date()),
-    screen: "today"
+    screen: "today",
+    histView: "prayers", // "prayers" or a habit id
+    histMonth: null      // first day of the month shown in History
   };
+  let editingHabit = null;
   let quoteShift = 0;    // "Another" taps since load
   let quoteTab = "mine";
   let justTicked = null;
@@ -595,11 +660,12 @@ h2.sec { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transfor
     if (data.settings) state.settings = { ...DEFAULT_SETTINGS, ...data.settings };
     if (data.days) state.days = data.days;
     if (data.notes) state.notes = data.notes;
+    if (data.habits) state.habits = data.habits;
     if (data.dirty) Object.assign(dirty, data.dirty);
   }
-  // Day keys, "note:<id>" keys and "settings" changed here since the last successful sync.
+  // Day keys, "note:<id>" and "habit:<id>" keys, and "settings" changed here since the last successful sync.
   const dirty = {};
-  function saveLocal() { ls.set(LS_KEY, { settings: state.settings, days: state.days, notes: state.notes, dirty }); }
+  function saveLocal() { ls.set(LS_KEY, { settings: state.settings, days: state.days, notes: state.notes, habits: state.habits, dirty }); }
 
   let sync = ls.get(LS_SYNC);   // { token, gistId } or null
   let pushTimer = null, syncing = null, lastSynced = null;
@@ -634,7 +700,7 @@ h2.sec { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transfor
       body: JSON.stringify({
         description: "Salat Tracker data (private)",
         public: false,
-        files: { [GIST_FILE]: { content: JSON.stringify({ version: 1, settings: state.settings, days: {}, notes: {} }) } }
+        files: { [GIST_FILE]: { content: JSON.stringify({ version: 1, settings: state.settings, days: {}, notes: {}, habits: {} }) } }
       })
     });
     return created.id;
@@ -658,9 +724,11 @@ h2.sec { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transfor
       const pending = { ...dirty };
       const days = { ...(remote.days || {}) };
       const notes = { ...(remote.notes || {}) };
+      const habits = { ...(remote.habits || {}) };
       const applyLocal = keys => {
         for (const k in keys) {
           if (k.startsWith("note:")) { const id = k.slice(5); if (state.notes[id]) notes[id] = state.notes[id]; }
+          else if (k.startsWith("habit:")) { const id = k.slice(6); if (state.habits[id]) habits[id] = state.habits[id]; }
           else if (k !== "settings" && state.days[k]) days[k] = state.days[k];
         }
       };
@@ -669,7 +737,7 @@ h2.sec { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transfor
       if (Object.keys(pending).length) {
         await gh("/gists/" + sync.gistId, {
           method: "PATCH",
-          body: JSON.stringify({ files: { [GIST_FILE]: { content: JSON.stringify({ version: 1, settings, days, notes, updated: new Date().toISOString() }) } } })
+          body: JSON.stringify({ files: { [GIST_FILE]: { content: JSON.stringify({ version: 1, settings, days, notes, habits, updated: new Date().toISOString() }) } } })
         });
       }
       // Keep changes made while this sync was running for the next round.
@@ -677,6 +745,7 @@ h2.sec { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transfor
       applyLocal(dirty);
       state.days = days;
       state.notes = notes;
+      state.habits = habits;
       state.settings = dirty.settings ? state.settings : settings;
       saveLocal();
       lastSynced = new Date();
@@ -726,6 +795,7 @@ h2.sec { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transfor
         // Push everything this device has, merged with what is already in the gist.
         for (const k in state.days) dirty[k] = true;
         for (const id in state.notes) dirty["note:" + id] = true;
+        for (const id in state.habits) dirty["habit:" + id] = true;
         $("tokenIn").value = "";
         await runSync();
         showSyncState();
@@ -820,12 +890,40 @@ h2.sec { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transfor
         list.appendChild(sr);
       }
     });
-    justTicked = null;
 
     const n = PRAYERS.filter(p => ticks[p.key]).length;
     $("heroBar").style.width = (n / 5 * 100) + "%";
     renderHero(now, today, isToday, n, times);
+    renderHabits(sel, isFuture, ticks);
+    justTicked = null;
     renderQuote(sel);
+  }
+
+  function renderHabits(sel, isFuture, ticks) {
+    const habits = liveHabits();
+    const done = habits.filter(([id]) => ticks["h:" + id]).length;
+    $("habitsTitle").textContent = habits.length ? "Habits · " + done + " of " + habits.length : "Habits";
+    const box = $("hlist");
+    if (!habits.length) {
+      box.innerHTML = '<p class="note">Add something you want to do every day, like reading Quran, a walk or no phone after Isha. Tap <b>+</b> to start.</p>';
+      return;
+    }
+    box.innerHTML = "";
+    habits.forEach(([id, h]) => {
+      const key = "h:" + id;
+      const on = !!ticks[key];
+      const streak = habitStreak(id);
+      const row = document.createElement("div");
+      row.className = "hrow" + (on ? " done" : "");
+      row.innerHTML =
+        '<button type="button" class="hname"><b></b><span>' + (streak ? streak + "-day streak" : "Tap to rename or delete") + '</span></button>' +
+        '<button class="tick' + (justTicked === key && on ? " pop" : "") + '" type="button" aria-pressed="' + on + '"' + (isFuture && !on ? " disabled" : "") + '>' + CHECK + '</button>';
+      row.querySelector("b").textContent = h.name;
+      row.querySelector(".tick").setAttribute("aria-label", (on ? "Untick " : "Tick ") + h.name);
+      row.querySelector(".hname").addEventListener("click", () => openHabitSheet(id));
+      row.querySelector(".tick").addEventListener("click", () => toggle(key));
+      box.appendChild(row);
+    });
   }
 
   function renderHero(now, today, isToday, n, times) {
@@ -864,45 +962,162 @@ h2.sec { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transfor
         '" stroke="var(--accent)" stroke-width="3" stroke-linecap="round" stroke-dasharray="' + (c * f).toFixed(2) + ' ' + c.toFixed(2) +
         '" transform="rotate(-90 13 13)"/>' : "") + '</svg>';
   }
+  // A view is the prayers (5 a day) or one habit (1 a day); every History number comes from these two helpers.
+  const viewMax = () => state.histView === "prayers" ? 5 : 1;
+  function viewCount(d) {
+    if (state.histView === "prayers") return countDay(d);
+    return (state.days[keyOf(d)] || {})["h:" + state.histView] ? 1 : 0;
+  }
+  // Prayers due so far today count fully on past days and only once their time has come today.
+  function viewPossible(d, today, now) {
+    if (d > today) return 0;
+    if (state.histView !== "prayers") return 1;
+    if (+d < +today) return 5;
+    const t = timesFor(today);
+    return PRAYERS.filter(p => now >= t[p.key]).length;
+  }
+  function viewStart() {
+    if (state.histView === "prayers") return null;
+    return habitStart(state.histView);
+  }
+
   function renderHistory() {
     const now = new Date();
     const today = startOfDay(now);
-    const todayTimes = timesFor(today);
-    const dueToday = PRAYERS.filter(p => now >= todayTimes[p.key]).length;
+    if (state.histView !== "prayers" && (!state.habits[state.histView] || state.habits[state.histView].deleted)) state.histView = "prayers";
+    if (!state.histMonth) state.histMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
-    // Streak: full days in a row; today counts once all five are ticked.
-    let streak = 0;
-    let d = countDay(today) === 5 ? today : addDays(today, -1);
-    while (countDay(d) === 5) { streak++; d = addDays(d, -1); }
-    let week = 0;
-    for (let i = 0; i < 7; i++) week += countDay(addDays(today, -i));
-    let month = 0;
-    for (let i = 0; i < 30; i++) month += countDay(addDays(today, -i));
-    const possible = 29 * 5 + dueToday;
-    $("stStreak").textContent = streak;
-    $("stWeek").textContent = week;
-    $("stMonth").textContent = possible ? Math.round(month / possible * 100) + "%" : "–";
-
-    // 5 weeks, Monday first, ending with this week.
-    const mondayOffset = (today.getDay() + 6) % 7;
-    const start = addDays(today, -mondayOffset - 28);
-    const cal = $("cal");
-    const dows = [];
-    for (let i = 0; i < 7; i++) dows.push('<div class="dow">' + addDays(start, i).toLocaleDateString(undefined, { weekday: "narrow" }) + '</div>');
-    cal.innerHTML = dows.join("");
-    for (let i = 0; i < 35; i++) {
-      const day = addDays(start, i);
-      const future = day > today;
-      const n = countDay(day);
+    // Picker: prayers plus each habit
+    const pick = $("histPick");
+    pick.innerHTML = "";
+    [["prayers", "Prayers"], ...liveHabits().map(([id, h]) => [id, h.name])].forEach(([id, label]) => {
       const b = document.createElement("button");
       b.type = "button";
-      b.className = "cday" + (future ? " future" : "") + (+day === +today ? " today" : "");
+      b.textContent = label;
+      b.setAttribute("aria-pressed", state.histView === id);
+      b.addEventListener("click", () => { state.histView = id; renderHistory(); });
+      pick.appendChild(b);
+    });
+
+    const max = viewMax();
+    const start = viewStart();
+    const counts = d => !start || d >= start;
+
+    // Streak: full days in a row; today counts once it is complete.
+    let streak = 0;
+    let d = viewCount(today) === max ? today : addDays(today, -1);
+    while (counts(d) && viewCount(d) === max) { streak++; d = addDays(d, -1); }
+    let week = 0, weekPossible = 0, month = 0, monthPossible = 0;
+    for (let i = 0; i < 30; i++) {
+      const day = addDays(today, -i);
+      if (!counts(day)) break;
+      const c = viewCount(day), p = viewPossible(day, today, now);
+      month += c; monthPossible += p;
+      if (i < 7) { week += c; weekPossible += p; }
+    }
+    $("stStreak").textContent = streak;
+    $("stStreakL").textContent = max === 5 ? "day streak, all 5" : "day streak";
+    $("stWeek").textContent = max === 5 ? week : week + "/" + weekPossible;
+    $("stWeekL").textContent = max === 5 ? "prayed in 7 days" : "days in the last 7";
+    $("stMonth").textContent = monthPossible ? Math.round(month / monthPossible * 100) + "%" : "–";
+    $("legendText").textContent = max === 5 ? "The ring fills with each prayer ticked" : "A full ring means done that day";
+
+    // Month calendar, Monday first
+    const m0 = state.histMonth;
+    const thisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    $("monthTitle").textContent = m0.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+    $("nextMonth").disabled = +m0 >= +thisMonth;
+    const daysIn = new Date(m0.getFullYear(), m0.getMonth() + 1, 0).getDate();
+    const lead = (m0.getDay() + 6) % 7;
+    const cal = $("cal");
+    const monday = addDays(m0, -lead);
+    let html = "";
+    for (let i = 0; i < 7; i++) html += '<div class="dow">' + addDays(monday, i).toLocaleDateString(undefined, { weekday: "narrow" }) + '</div>';
+    for (let i = 0; i < lead; i++) html += '<div class="cblank"></div>';
+    cal.innerHTML = html;
+    let mDone = 0, mPossible = 0;
+    for (let i = 1; i <= daysIn; i++) {
+      const day = new Date(m0.getFullYear(), m0.getMonth(), i);
+      const future = day > today;
+      const before = !counts(day);
+      const c = viewCount(day);
+      if (!before) { mDone += c; mPossible += viewPossible(day, today, now); }
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "cday" + (future ? " future" : "") + (before && !future ? " before" : "") + (+day === +today ? " today" : "");
       b.disabled = future;
-      b.setAttribute("aria-label", day.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" }) + ", " + n + " of 5");
-      b.innerHTML = '<span class="n">' + day.getDate() + '</span>' + ring(future ? 0 : n);
+      b.setAttribute("aria-label", day.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" }) + ", " + c + " of " + max);
+      b.innerHTML = '<span class="n">' + i + '</span>' + ring(future ? 0 : c * 5 / max);
       b.addEventListener("click", () => { state.selected = day; renderToday(); showScreen("today"); });
       cal.appendChild(b);
     }
+    const pct = mPossible ? " (" + Math.round(mDone / mPossible * 100) + "%)" : "";
+    $("monthSum").innerHTML = mPossible
+      ? (max === 5 ? "<b>" + mDone + "</b> of " + mPossible + " prayers" : "Done on <b>" + mDone + "</b> of " + mPossible + " days") + pct
+      : "No days to count in this month yet.";
+  }
+
+  // ---------- Habits ----------
+  const liveHabits = () => Object.entries(state.habits).filter(([, h]) => !h.deleted).sort((a, b) => a[1].created - b[1].created);
+  // A habit counts from the day it was added, or from its earliest tick if you back-filled older days.
+  function habitStart(id) {
+    const h = state.habits[id];
+    let start = startOfDay(new Date(h.created));
+    for (const k in state.days) {
+      if (state.days[k]["h:" + id]) {
+        const [y, m, d] = k.split("-").map(Number);
+        const day = new Date(y, m - 1, d);
+        if (day < start) start = day;
+      }
+    }
+    return start;
+  }
+  function habitStreak(id) {
+    const today = startOfDay(new Date());
+    const on = d => (state.days[keyOf(d)] || {})["h:" + id];
+    let streak = 0;
+    let d = on(today) ? today : addDays(today, -1);
+    while (on(d)) { streak++; d = addDays(d, -1); }
+    return streak;
+  }
+  function openHabitSheet(id) {
+    editingHabit = id || null;
+    $("habitTitle").textContent = id ? "Edit habit" : "New habit";
+    $("habitSave").textContent = id ? "Save" : "Add habit";
+    $("habitName").value = id ? state.habits[id].name : "";
+    $("habitDelete").hidden = !id;
+    $("habitDelete").textContent = "Delete habit";
+    delete $("habitDelete").dataset.armed;
+    $("habitSheet").hidden = false;
+    setTimeout(() => $("habitName").focus(), 260);
+  }
+  function closeHabitSheet() { $("habitSheet").hidden = true; editingHabit = null; }
+  function buildHabits() {
+    $("addHabitBtn").addEventListener("click", () => openHabitSheet());
+    $("habitCancel").addEventListener("click", closeHabitSheet);
+    $("habitSheet").addEventListener("click", e => { if (e.target === $("habitSheet")) closeHabitSheet(); });
+    document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("habitSheet").hidden) closeHabitSheet(); });
+    $("habitForm").addEventListener("submit", e => {
+      e.preventDefault();
+      const name = $("habitName").value.trim();
+      if (!name) { $("habitName").focus(); return; }
+      const id = editingHabit || Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      const prev = state.habits[id];
+      state.habits = { ...state.habits, [id]: prev ? { ...prev, name } : { name, created: Date.now() } };
+      closeHabitSheet();
+      renderAll();
+      markDirty("habit:" + id);
+    });
+    // Deleting keeps the old ticks in the data but hides the habit everywhere.
+    $("habitDelete").addEventListener("click", () => {
+      const b = $("habitDelete");
+      if (!b.dataset.armed) { b.dataset.armed = "1"; b.textContent = "Tap again to delete"; return; }
+      const id = editingHabit;
+      state.habits = { ...state.habits, [id]: { ...state.habits[id], deleted: true } };
+      closeHabitSheet();
+      renderAll();
+      markDirty("habit:" + id);
+    });
   }
 
   // ---------- Quotes and notes ----------
@@ -1030,6 +1245,9 @@ h2.sec { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transfor
   buildSettingsForm();
   buildSyncForm();
   buildQuotes();
+  buildHabits();
+  $("prevMonth").addEventListener("click", () => { const m = state.histMonth; state.histMonth = new Date(m.getFullYear(), m.getMonth() - 1, 1); renderHistory(); });
+  $("nextMonth").addEventListener("click", () => { const m = state.histMonth; state.histMonth = new Date(m.getFullYear(), m.getMonth() + 1, 1); renderHistory(); });
   fillSettingsForm();
   showSyncState();
   renderToday();
